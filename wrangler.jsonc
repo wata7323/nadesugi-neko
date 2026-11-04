@@ -1,0 +1,8 @@
+// Cloudflare Workers の設定（GitHub から自動で公開されるときに使われる）
+// β版はサーバーなし：index.html と sprites.js をそのまま配信する（.assetsignore に書いたもの以外は配信しない）
+{
+  // ↓ Cloudflare のダッシュボードで付けた Worker の名前と同じにする
+  "name": "nadesugi-neko",
+  "compatibility_date": "2025-09-01",
+  "assets": { "directory": "." }
+}

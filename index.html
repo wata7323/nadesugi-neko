@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>10秒なですぎ猫</title>
+<meta name="description" content="猫を10秒なでるだけ。なで方しだいで、猫が猫じゃなくなる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#2a2523; --sub:#7a6f68; --tint:#f7f1e8; --accent:#e0794a; --red:#d94b3d; --panel:#fffdf8;
+    --dot:"DotGothic16","Yu Gothic UI","Meiryo",sans-serif; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; overflow:hidden; touch-action:none; overscroll-behavior:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
+  body{ background:var(--tint); color:var(--ink); font-family:var(--dot); transition:background-color .5s; }
+  body.dark{ --ink:#f2ede6; --sub:#b8aea6; --panel:#1d1a24; }
+  #stage{ position:fixed; inset:0; }
+  #cv{ position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; }
+  /* 上：HUD */
+  #hud{ position:absolute; left:0; right:0; top:0; padding:calc(10px + env(safe-area-inset-top)) 16px 0; text-align:center; pointer-events:none; }
+  #tline{ position:absolute; left:0; top:0; height:4px; background:var(--accent); width:100%; transform-origin:left; }
+  .row1{ display:flex; justify-content:space-between; font-size:14px; color:var(--sub); }
+  .row1 b{ font-weight:normal; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .row1 b.hurry{ color:var(--red); }
+  #form{ font-size:clamp(28px, 9vw, 46px); line-height:1.2; margin-top:4px; letter-spacing:.04em; }
+  #status{ font-size:15px; min-height:1.4em; color:var(--sub); }
+  #status.alert{ color:var(--red); }
+  /* 下：系統ゲージ */
+  #ctrl{ position:absolute; left:0; right:0; bottom:0; padding:8px 16px calc(12px + env(safe-area-inset-bottom)); pointer-events:none; }
+  .moods{ display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; margin-bottom:8px; }
+  .lines{ display:grid; grid-template-columns:repeat(3, 1fr); gap:4px 12px; }
+  .g{ font-size:12px; color:var(--sub); }
+  .g .bar{ height:8px; border:2px solid var(--ink); margin-top:2px; background:var(--panel); }
+  .g .bar i{ display:block; height:100%; width:0; background:var(--c, var(--ink)); }
+  .g.lead{ color:var(--ink); }
+  /* ボタン（ドット風：角なし・太線） */
+  .btns{ position:absolute; left:0; right:0; display:flex; justify-content:center; gap:8px; }
+  #pre{ bottom:calc(150px + env(safe-area-inset-bottom)); }
+  button{ font-family:var(--dot); font-size:15px; color:var(--ink); background:var(--panel); border:2px solid var(--ink); border-radius:0; padding:7px 12px; box-shadow:3px 3px 0 var(--ink); cursor:pointer; touch-action:manipulation; }
+  button:active{ transform:translate(2px,2px); box-shadow:1px 1px 0 var(--ink); }
+  button.main{ background:var(--accent); color:#fff; font-size:18px; padding:10px 22px; }
+  .dot-new{ position:relative; } .dot-new::after{ content:""; position:absolute; right:-5px; top:-5px; width:9px; height:9px; background:var(--red); }
+  #rs{ position:absolute; right:12px; top:calc(40px + env(safe-area-inset-top)); display:none; font-size:12px; padding:4px 8px; box-shadow:2px 2px 0 var(--ink); }
+  /* 重ねる画面 */
+  .ov{ position:fixed; inset:0; display:none; background:rgba(20,16,14,.55); z-index:10; padding:calc(16px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom)); }
+  .ov.on{ display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .sheet{ background:var(--panel); border:3px solid var(--ink); box-shadow:6px 6px 0 rgba(0,0,0,.35); width:min(440px, 100%); max-height:100%; overflow:auto; padding:16px; color:var(--ink); }
+  .sheet h2{ margin:0 0 10px; font-weight:normal; font-size:22px; text-align:center; }
+  .how{ display:grid; gap:12px; }
+  .how div{ display:flex; gap:12px; align-items:center; font-size:15px; line-height:1.5; }
+  .how canvas{ flex:0 0 auto; image-rendering:pixelated; }
+  .how small{ color:var(--sub); font-size:12px; display:block; }
+  .ver{ margin-top:12px; font-size:11px; color:var(--sub); text-align:right; }
+  .ver a{ color:var(--sub); }
+  #zgrid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
+  #zgrid figure{ margin:0; text-align:center; font-size:10px; line-height:1.3; }
+  #zgrid canvas{ width:100%; image-rendering:pixelated; background:#f4efe6; border:2px solid var(--ink); }
+  #zgrid figure.no{ color:var(--sub); }
+  .zsum{ text-align:center; font-size:13px; color:var(--sub); margin:-4px 0 10px; }
+  #result .card{ width:auto; max-width:min(440px, 100%); max-height:calc(100% - 120px); aspect-ratio:3/4; border:3px solid var(--ink); background:#fff; box-shadow:6px 6px 0 rgba(0,0,0,.35); }
+  #result .rbtns{ display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; justify-content:center; }
+  #result .rbtns button{ min-width:64px; }
+  #result .rbtns button.main{ min-width:120px; }
+  #wipe{ position:fixed; inset:0; z-index:20; pointer-events:none; display:grid; grid-template-columns:repeat(8, 1fr); grid-auto-rows:1fr; }
+  #wipe i{ background:var(--ink); transform:scaleY(0); transform-origin:top; transition:transform .16s steps(4); }
+  #wipe.on i{ transform:scaleY(1); }
+  #toast{ position:fixed; left:50%; bottom:calc(90px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--ink); color:var(--panel); padding:8px 14px; font-size:14px; z-index:30; display:none; white-space:nowrap; }
+  #dbg{ position:fixed; left:4px; top:120px; z-index:40; font:11px/1.35 ui-monospace,Consolas,monospace; background:rgba(0,0,0,.72); color:#cfe; padding:6px 8px; white-space:pre; pointer-events:none; display:none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="tline"></div>
+  <div id="hud">
+    <div class="row1"><span id="lineName">今日の猫：茶トラ</span><span>残り <b id="time">10.00</b></span></div>
+    <div id="form">ふつうの猫</div>
+    <div id="status">猫をなでると はじまる</div>
+  </div>
+  <button id="rs">やり直す</button>
+  <div class="btns" id="pre">
+    <button id="hbtn">遊び方</button><button id="zbtn">図鑑</button><button id="stbtn">描き方</button><button id="sbtn">音 ON</button>
+  </div>
+  <div id="ctrl">
+    <div class="moods">
+      <div class="g"><span>ゴロゴロ</span><div class="bar"><i id="mPurr" style="--c:#e0794a"></i></div></div>
+      <div class="g"><span>イライラ</span><div class="bar"><i id="mIrr" style="--c:#d94b3d"></i></div></div>
+    </div>
+    <div class="lines" id="lines"></div>
+  </div>
+</div>
+
+<div class="ov" id="howto"><div class="sheet">
+  <h2>遊び方</h2>
+  <div class="how" id="howList"></div>
+  <p style="text-align:center;margin:14px 0 0;color:var(--sub);font-size:13px">どこを触っても閉じます</p>
+  <div class="ver">わた｜ver. 0.1.0　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
+</div></div>
+
+<div class="ov" id="zukan"><div class="sheet">
+  <h2>図鑑</h2>
+  <div class="zsum" id="zsum"></div>
+  <div id="zgrid"></div>
+  <p style="text-align:center;margin:12px 0 0"><button id="zclose">閉じる</button></p>
+</div></div>
+
+<div class="ov" id="result">
+  <canvas class="card" id="card" width="1080" height="1440"></canvas>
+  <div class="rbtns">
+    <button id="xbtn">ポスト</button><button id="save">保存</button><button id="zbtn2">図鑑</button><button id="retry" class="main">もう一回</button>
+  </div>
+</div>
+
+<div id="wipe"></div>
+<div id="toast"></div>
+<div id="dbg"></div>
+
+<script src="sprites.js"></script>
+<script>
+'use strict';
+const { FORMS, LINES, COATS, STYLES, STYLE_BG, render, drawStyled } = CatSprites;
+const APP_VER = '0.1.0';
+
+/*SIM-START*/
+// ---------- 調整用の数値（ここだけ触れば手ざわりが変わる） ----------
+const P = {
+  time: 10,                 // 1プレイの秒数（触った瞬間から）
+  slow: 28, fast: 95,       // なでる速さの境目（猫の絵の48マス単位／秒）
+  // とろけ系：あご・ほっぺをゆっくり
+  melt: { chin:1.0, head:.35, ear:.1, body:.15, belly:0 }, meltSpeed: [2.6, 1.0, .15],   // [ゆっくり, ふつう, はやい]
+  // のびる系：胴を長いストロークで
+  longSeg: { body:.3 }, longStrokeMin: 22, longStroke: 1.1,
+  // 妖系：耳
+  yokai: { ear:2.4, head:.15 },
+  // 帯電系：速い往復・逆なで
+  elecFast: .45, elecUp: 1.6, elecRev: 5,
+  // 怒り系：お腹＋猫パンチ
+  angryBelly: 1.5, bellyRun: 8, punchAngry: 45,   // お腹は「そこに留まって」なでたときだけ（通り過ぎは数えない）
+  // 放置系：触ってから手を離して待つ（1秒あたり）
+  idleRate: 42, idleGrace: .5,   // 手を離して .5 秒たってから数える
+  // 気持ち
+  purrGain: { chin:.5, head:.45, ear:.4, body:.4, belly:0 }, purrDecay: 9, purrBoost: .8,
+  irrBelly: .9, irrFast: .08, irrUp: .1, irrDecay: 7, punchLock: 1.0,
+  // 進化のしきい値（その系統の点数）
+  stage: [55, 140, 260, 400], idleStage: [60, 170, 320],
+  // 隠し・ミーム
+  uchu: 70, gainen: 140,
+  memeSpinTurns: 3, memeTaps: 12, memeStill: 2.5, memePunch: 5, memeHappyPurr: 90, memeHappyIrr: 35,
+  memeNakiPurr: 55, memeNakiIdle: 3.5, memeHappyRegions: 4, memeJouhinDist: 60, memeJouhinMaxV: 60, memeJouhinHead: .8,
+};
+const SYS = ['melt', 'long', 'yokai', 'elec', 'angry'];
+const LINE_FORMS = {
+  melt:['yurumi','liquid','gas','cloud'], long:['dounaga','hamidashi','kaigyo','chikyu'], yokai:['ware','nekomata','kyubi','nekogami'],
+  elec:['sakadachi','kedama','kaminari','hatsuden'], angry:['ikamimi','kamu','tora','kaiju'], idle:['koubako','hako','hakodake'],
+};
+// 48マス座標でなでた場所を判定（正面の座り姿が基準）
+function region(u, v){
+  const hx = (u - 24) / 12, hy = (v - 19) / 9.5, bx = (u - 24) / 12, by = (v - 35) / 10;
+  if (v < 12 && Math.abs(u - 24) > 3 && Math.abs(u - 24) < 14) return 'ear';
+  if (hx * hx + hy * hy <= 1) return v < 20 ? 'head' : 'chin';
+  if (Math.abs(u - 24) < 6 && v > 29 && v < 44) return 'belly';
+  if (bx * bx + by * by <= 1 || (v > 40 && v < 47 && Math.abs(u - 24) < 9)) return 'body';
+  return null;
+}
+function newSim(coat){
+  return { t:0, started:false, over:false, coat, score:{ melt:0, long:0, yokai:0, elec:0, angry:0, idle:0 },
+    purr:0, purrPeak:0, irr:0, irrPeak:0, punch:0, lock:0, dist:0, strokes:0, nade:0, segLen:0, taps:0, tapRegions:{}, still:0, spin:0, maxV:0,
+    regionDist:{ ear:0, head:0, chin:0, body:0, belly:0 }, bellyRun:0, lastTouch:0, down:false, stroke:null, prevDir:null, prevAng:null, line:'start', stage:0 };
+}
+// 指の移動1回ぶん（u,v は48マス座標、dt 秒）
+function simMove(s, u0, v0, u1, v1, dt){
+  if (s.over || s.lock > 0) return;
+  const dx = u1 - u0, dy = v1 - v0, d = Math.hypot(dx, dy); const v = d / Math.max(dt, 1e-3);
+  if (s.stroke){ s.stroke.len += d; }
+  // 回転（猫の中心まわりの角度）
+  const ang = Math.atan2(v1 - 30, u1 - 24), rr = Math.hypot(u1 - 24, v1 - 30);
+  if (s.prevAng !== null && rr > 8){ let da = ang - s.prevAng; if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI; s.spin += da; }
+  s.prevAng = ang;
+  s.stillRun = v < 2 ? (s.stillRun || 0) + dt : 0; if (s.stillRun > .4) s.still += dt;
+  if (d < .05) return;
+  const r = region(u1, v1); if (!r) return;
+  s.dist += d; s.maxV = Math.max(s.maxV, v); s.regionDist[r] += d;
+  const sp = v < P.slow ? 0 : v < P.fast ? 1 : 2, up = dy < -d * .4;
+  const boost = 1 + s.purr / 100 * P.purrBoost;
+  s.score.melt += d * (P.melt[r] || 0) * P.meltSpeed[sp] * boost;
+  s.score.long += d * (P.longSeg[r] || 0) * boost;
+  s.score.yokai += d * (P.yokai[r] || 0) * boost;
+  if (sp === 2) s.score.elec += d * P.elecFast * (up ? P.elecUp : 1) * boost;
+  s.bellyRun = r === 'belly' ? s.bellyRun + d : 0; const inBelly = s.bellyRun > P.bellyRun;
+  if (inBelly) s.score.angry += d * P.angryBelly * boost;
+  // 往復（向きが反対になった）
+  const dir = [dx / d, dy / d];
+  const back = s.prevDir && dir[0] * s.prevDir[0] + dir[1] * s.prevDir[1] < -.3;
+  if (back && s.segLen > 4){ s.nade++; s.segLen = 0; }   // 往復1回＝1なで
+  s.segLen += d;
+  if (back && sp === 2) s.score.elec += P.elecRev * boost;
+  s.prevDir = dir;
+  // 気持ち
+  if (sp < 2 && !up) s.purr = Math.min(100, s.purr + d * (P.purrGain[r] || 0));
+  s.irr += d * ((inBelly ? P.irrBelly : 0) + (sp === 2 ? P.irrFast : 0) + (up ? P.irrUp : 0));
+  s.purrPeak = Math.max(s.purrPeak, s.purr);
+  if (s.irr >= 100){ s.irr = 30; s.punch++; s.score.angry += P.punchAngry; s.lock = P.punchLock; s.punched = true; }
+  s.irrPeak = Math.max(s.irrPeak, s.irr);
+}
+function simDown(s){ if (s.over) return; s.down = true; s.stroke = { len:0, t:s.t }; s.prevDir = null; s.prevAng = null; s.lastTouch = s.t; }
+function simUp(s, u, v){
+  if (!s.stroke) return; const st = s.stroke; s.stroke = null; s.down = false; s.lastTouch = s.t;
+  if (s.over) return;
+  if (st.len > 2){ s.strokes++; if (s.segLen > 4) s.nade++; s.segLen = 0; }
+  if (s.t - st.t < .22 && st.len < 3){ s.taps++; const r = region(u, v); if (r) s.tapRegions[r] = 1; }
+  if (st.len > P.longStrokeMin && s.lock <= 0) s.score.long += (st.len - P.longStrokeMin * .8) * P.longStroke * (1 + s.purr / 100 * P.purrBoost);
+}
+function simTick(s, dt){
+  if (!s.started || s.over) return;
+  s.t += dt; s.lock = Math.max(0, s.lock - dt);
+  if (!s.down){ if (s.t - s.lastTouch > P.idleGrace) s.score.idle += P.idleRate * dt; s.purr = Math.max(0, s.purr - P.purrDecay * dt); }
+  s.irr = Math.max(0, s.irr - P.irrDecay * dt);
+  const lv = liveForm(s); s.line = lv.line; s.stage = lv.stage; s.form = lv.form;
+  if (s.t >= P.time){ s.t = P.time; s.over = true; }
+}
+function liveForm(s){
+  let best = 'melt'; for (const k of SYS) if (s.score[k] > s.score[best]) best = k;
+  let line = best, val = s.score[best], th = P.stage;
+  if (s.score.idle > val && s.started){ line = 'idle'; val = s.score.idle; th = P.idleStage; }
+  let stage = 0; for (let i = 0; i < th.length; i++) if (val >= th[i]) stage = i + 1;
+  if (!stage) return { line:'start', stage:0, form:'normal' };
+  return { line, stage, form: LINE_FORMS[line][stage - 1] };
+}
+// 時間切れのときの最終判定（隠し・ミームが上書きする）
+function finalForm(s){
+  const mn = Math.min(...SYS.map(k => s.score[k]));
+  const idleEnd = s.down ? 0 : s.t - s.lastTouch;
+  const tr = s.tapRegions, allTap = ['ear','head','chin','body','belly'].every(k => tr[k]);
+  if (mn >= P.gainen) return { form:'gainen', why:'全部の系統をまんべんなく、たっぷり' };
+  if (mn >= P.uchu) return { form:'uchu', why:'全部の系統をまんべんなく' };
+  if (s.still >= P.memeStill) return { form:'magao', why:'じっと押さえ続けた' };
+  if (Math.abs(s.spin) >= P.memeSpinTurns * 2 * Math.PI) return { form:'spin', why:'ぐるぐる円を描いた' };
+  if (allTap) return { form:'yoshi', why:'耳・頭・あご・胴・お腹を全部タップ' };
+  if (s.punch >= P.memePunch) return { form:'banana', why:`猫パンチを${s.punch}回くらった` };
+  if (s.taps >= P.memeTaps) return { form:'pop', why:'ポンポン連打した' };
+  if (s.purrPeak >= P.memeNakiPurr && idleEnd >= P.memeNakiIdle) return { form:'naki', why:'気持ちよくさせて、急にやめた' };
+  const many = Object.values(s.regionDist).filter(v => v >= 15).length;
+  if (s.purr >= P.memeHappyPurr && s.irrPeak < P.memeHappyIrr && many >= P.memeHappyRegions && liveForm(s).stage <= 1) return { form:'happy', why:'いろんな所を、ちょうどよく' };
+  if (s.dist >= P.memeJouhinDist && s.maxV < P.memeJouhinMaxV && s.regionDist.head >= s.dist * P.memeJouhinHead) return { form:'jouhin', why:'頭だけを、ゆっくりやさしく' };
+  const lv = liveForm(s); return { form: lv.form, why:null };
+}
+/*SIM-END*/
+
+// ---------- 画面 ----------
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const LS = { get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch(e){ return d; } }, set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} } };
+const FORM = id => FORMS.find(f => f.id === id);
+const LINE = key => LINES.find(l => l.key === key);
+const SYS_LABEL = { melt:'とろけ', long:'のびる', yokai:'妖', elec:'帯電', angry:'怒り', idle:'放置' };
+const SYS_COLOR = { melt:'#6fb3e0', long:'#c9a25a', yokai:'#9a7fd6', elec:'#e6b800', angry:'#d94b3d', idle:'#9b8f84' };
+const REGION_LABEL = { ear:'耳', head:'頭', chin:'あご', body:'胴', belly:'お腹' };
+
+let style = LS.get('neko_style', 'std'); if (!STYLES.find(s => s.id === style)) style = 'std';
+let sound = LS.get('neko_sound', true);
+let S, phase = 'ready', view = { s:6, ox:0, oy:0 }, shake = 0, parts = [], evoFlash = 0, prevForm = 'normal', resultInfo = null;
+
+// 線のゲージ
+const linesEl = $('lines'); const bars = {};
+for (const k of [...SYS, 'idle']){ const d = document.createElement('div'); d.className = 'g'; d.innerHTML = `<span>${SYS_LABEL[k]}</span><div class="bar"><i style="--c:${SYS_COLOR[k]}"></i></div>`; linesEl.appendChild(d); bars[k] = { el:d, i:d.querySelector('i') }; }
+
+// ---------- 絵のキャッシュ ----------
+const cache = new Map();
+function sprite(id, f, coat, scale, opt = {}){
+  const k = `${id}|${f}|${coat}|${style}|${scale}|${opt.silhouette || ''}`; let c = cache.get(k);
+  if (!c){ c = drawStyled(render(id, 48, f, coat), scale, style, { noBg:true, ...opt }); cache.set(k, c); if (cache.size > 400) cache.delete(cache.keys().next().value); }
+  return c;
+}
+
+// ---------- 大きさ ----------
+let W = 0, H = 0, DPR = 1;
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  const top = $('hud').getBoundingClientRect().bottom + 8, bottom = $('ctrl').getBoundingClientRect().top - 8;
+  const avail = Math.min(W - 24, bottom - top);
+  const s = Math.max(2, Math.floor(avail * DPR / 48));   // 実ピクセルで整数倍（ドットを崩さない）
+  view.s = s; view.size = 48 * s / DPR; view.ox = (W - view.size) / 2; view.oy = top + (bottom - top - view.size) / 2;
+}
+addEventListener('resize', resize);
+
+// ---------- 音（Web Audio で合成） ----------
+let AC = null, master, purrG, purrLfo, rustleG, rustleF, noiseBuf;
+function audioInit(){
+  if (AC) return; try { AC = new (window.AudioContext || window.webkitAudioContext)({ latencyHint:.06 }); } catch(e){ return; }
+  const comp = AC.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 6;
+  master = AC.createGain(); master.gain.value = sound ? .9 : 0; comp.connect(master); master.connect(AC.destination);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate); const d = noiseBuf.getChannelData(0); let b = 0; for (let i = 0; i < d.length; i++){ const w = Math.random() * 2 - 1; b = (b + .02 * w) / 1.02; d[i] = b * 3.5; }
+  // ゴロゴロ：低いノイズを 24Hz 前後でふるわせる
+  const n1 = AC.createBufferSource(); n1.buffer = noiseBuf; n1.loop = true; const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260;
+  const am = AC.createGain(); am.gain.value = 0; purrG = AC.createGain(); purrG.gain.value = 0;
+  purrLfo = AC.createOscillator(); purrLfo.frequency.value = 24; const lfoG = AC.createGain(); lfoG.gain.value = .5; purrLfo.connect(lfoG); lfoG.connect(am.gain);
+  const dc = AC.createConstantSource ? AC.createConstantSource() : null; if (dc){ dc.offset.value = .5; dc.connect(am.gain); dc.start(); }
+  n1.connect(lp); lp.connect(am); am.connect(purrG); purrG.connect(comp); n1.start(); purrLfo.start();
+  // 毛をなでる音：高めのノイズ
+  const n2 = AC.createBufferSource(); n2.buffer = noiseBuf; n2.loop = true; n2.playbackRate.value = 3;
+  rustleF = AC.createBiquadFilter(); rustleF.type = 'bandpass'; rustleF.frequency.value = 2400; rustleF.Q.value = .8;
+  rustleG = AC.createGain(); rustleG.gain.value = 0; n2.connect(rustleF); rustleF.connect(rustleG); rustleG.connect(comp); n2.start();
+  AC.comp = comp;
+}
+function setP(p, v, tc = .05){ if (!AC) return; if (Math.abs((p._v ?? -9) - v) < .002) return; p._v = v; p.setTargetAtTime(v, AC.currentTime, tc); }
+function tone(freq, dur, type = 'square', vol = .12, slide = 0, delay = 0){
+  if (!AC || !sound) return; const t = AC.currentTime + delay; const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur); o.connect(g); g.connect(AC.comp); o.start(t); o.stop(t + dur + .02);
+}
+function thump(vol = .5){ if (!AC || !sound) return; const t = AC.currentTime; const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 400; const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + .25); s.connect(f); f.connect(g); g.connect(AC.comp); s.start(t); s.stop(t + .3); tone(110, .25, 'sine', .4, -60); }
+const sfx = {
+  evo(){ tone(660, .08, 'square', .1); tone(990, .12, 'square', .1, 0, .07); },
+  punch(){ thump(.6); tone(880, .1, 'square', .08, 300); },
+  tick(){ tone(1400, .03, 'square', .05); },
+  tap(){ tone(520, .05, 'triangle', .1); },
+  reveal(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, 'square', .09, 0, i * .08)); },
+  click(){ tone(700, .03, 'triangle', .08); },
+};
+function setSound(on){ sound = on; LS.set('neko_sound', on); $('sbtn').textContent = on ? '音 ON' : '音 OFF'; if (master) setP(master.gain, on ? .9 : 0); }
+
+// ---------- 入力 ----------
+const ptr = { id:null, x:0, y:0, t:0 };
+function toUV(x, y){ return [(x - view.ox) / view.size * 48, (y - view.oy) / view.size * 48]; }
+cv.addEventListener('pointerdown', e => {
+  audioInit(); if (AC && AC.state === 'suspended') AC.resume();
+  if (phase === 'result' || phase === 'firing') return;
+  if (ptr.id !== null) return;
+  const [u, v] = toUV(e.clientX, e.clientY);
+  if (phase === 'ready'){ if (!region(u, v)) return; start(); }
+  cv.setPointerCapture(e.pointerId); ptr.id = e.pointerId; ptr.x = e.clientX; ptr.y = e.clientY; ptr.t = performance.now();
+  simDown(S);
+});
+cv.addEventListener('pointermove', e => {
+  if (e.pointerId !== ptr.id || phase !== 'play') return;
+  const now = performance.now(), dt = (now - ptr.t) / 1000; if (dt <= 0) return;
+  const [u0, v0] = toUV(ptr.x, ptr.y), [u1, v1] = toUV(e.clientX, e.clientY);
+  const before = S.punch; simMove(S, u0, v0, u1, v1, dt);
+  if (S.punch > before) onPunch();
+  const d = Math.hypot(u1 - u0, v1 - v0), sp = d / dt;
+  if (AC){ setP(rustleG.gain, sound && S.lock <= 0 && region(u1, v1) ? Math.min(.22, sp / 600) : 0, .03); setP(rustleF.frequency, 1600 + Math.min(3000, sp * 15)); }
+  if (S.purr > 40 && region(u1, v1) && Math.random() < d * .04) spawn('heart', e.clientX, e.clientY);
+  if (sp > P.fast && Math.random() < d * .05) spawn('spark', e.clientX, e.clientY);
+  ptr.x = e.clientX; ptr.y = e.clientY; ptr.t = now;
+});
+function endPtr(e){ if (e.pointerId !== ptr.id) return; ptr.id = null; if (phase === 'play'){ const [u, v] = toUV(e.clientX, e.clientY); const taps = S.taps; simUp(S, u, v); if (S.taps > taps) sfx.tap(); } if (AC) setP(rustleG.gain, 0, .05); }
+cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr); cv.addEventListener('lostpointercapture', endPtr);
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('gesturestart', e => e.preventDefault());
+addEventListener('keydown', e => { if (e.key === 'Enter' && phase === 'result') retry(); if ((e.key === 'r' || e.key === 'R') && phase === 'play') retry(); });
+
+// ---------- 進行 ----------
+function newRound(){
+  const coats = Object.keys(COATS); const coat = coats[Math.floor(Math.random() * coats.length)];
+  S = newSim(coat); phase = 'ready'; prevForm = 'normal'; parts = []; shake = 0; evoFlash = 0;
+  $('lineName').textContent = `今日の猫：${COATS[coat].name}`; $('form').textContent = 'ふつうの猫'; setStatus('猫をなでると はじまる');
+  $('time').textContent = P.time.toFixed(2); $('time').classList.remove('hurry'); $('tline').style.transform = 'scaleX(1)';
+  $('pre').style.display = 'flex'; $('rs').style.display = 'none'; setTint('start');
+}
+function start(){ S.started = true; phase = 'play'; $('pre').style.display = 'none'; $('rs').style.display = 'block'; setStatus('なでなで…'); }
+function setStatus(t, alert){ const el = $('status'); el.textContent = t; el.classList.toggle('alert', !!alert); }
+function setTint(line){
+  const dark = style === 'fc' || style === 'crt' || style === 'neon';
+  document.body.classList.toggle('dark', dark);
+  document.body.style.backgroundColor = style === 'std' ? (LINE(line) || LINE('start')).tint : STYLE_BG[style];
+}
+function onPunch(){ sfx.punch(); shake = 1; setStatus('猫パンチ！ ちょっと待って', true); spawn('paw'); if (navigator.vibrate && sound) navigator.vibrate([40, 30, 60]); }
+let lastTick = 0, vibT = 0;
+function update(dt){
+  if (phase === 'play'){
+    const before = S.form; simTick(S, dt);
+    if (S.form && S.form !== prevForm){ prevForm = S.form; evoFlash = .35; sfx.evo(); shake = Math.max(shake, .4); $('form').textContent = FORM(S.form).name; setTint(S.line);
+      for (let i = 0; i < 10; i++) spawn('puff'); }
+    const left = P.time - S.t; $('time').textContent = left.toFixed(2); $('time').classList.toggle('hurry', left < 3); $('tline').style.transform = `scaleX(${left / P.time})`;
+    if (left < 3 && Math.floor(left) !== lastTick){ lastTick = Math.floor(left); sfx.tick(); }
+    if (S.lock <= 0){ if (S.irr > 70) setStatus('イライラしてる…', true); else if (S.purr > 70) setStatus('ゴロゴロゴロ…'); else if (!S.down) setStatus('（なでられ待ち）'); else setStatus('なでなで…'); }
+    if (S.purr > 50 && S.down && navigator.vibrate && sound && (vibT -= dt) <= 0){ navigator.vibrate(12); vibT = .14; }
+    if (S.over) fire();
+  }
+  if (AC){ const on = phase === 'play' && S.down && S.lock <= 0; setP(purrG.gain, sound && on ? S.purr / 100 * .5 : 0, .15); setP(purrLfo.frequency, 20 + S.purr * .06); }
+  shake = Math.max(0, shake - dt * 2.5); evoFlash = Math.max(0, evoFlash - dt);
+  parts = parts.filter(p => (p.life -= dt) > 0); for (const p of parts){ p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; }
+  // ゲージ
+  $('mPurr').style.width = (S.purr) + '%'; $('mIrr').style.width = Math.min(100, S.irr) + '%';
+  const lead = S.line;
+  for (const k of [...SYS, 'idle']){ const th = k === 'idle' ? P.idleStage[2] : P.stage[3]; bars[k].i.style.width = Math.min(100, S.score[k] / th * 100) + '%'; bars[k].el.classList.toggle('lead', k === lead); }
+}
+
+// ---------- 粒（ドットの形） ----------
+const PAT = {
+  heart:['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'],
+  spark:['..#..', '..#..', '##.##', '..#..', '..#..'],
+  puff:['.##.', '####', '####', '.##.'],
+};
+function spawn(kind, x, y){
+  if (kind === 'paw'){ parts.push({ kind, x:view.ox + view.size / 2, y:view.oy + view.size * .55, vx:0, vy:0, g:0, life:.45, max:.45 }); return; }
+  if (kind === 'puff'){ const a = Math.random() * Math.PI * 2, r = view.size * .35; x = view.ox + view.size / 2 + Math.cos(a) * r * .6; y = view.oy + view.size / 2 + Math.sin(a) * r * .6;
+    parts.push({ kind, x, y, vx:Math.cos(a) * 120, vy:Math.sin(a) * 120, g:0, life:.5, max:.5, c:'#ffffff' }); return; }
+  parts.push({ kind, x, y, vx:(Math.random() - .5) * 60, vy:-60 - Math.random() * 60, g:kind === 'spark' ? 200 : -20, life:.8, max:.8, c: kind === 'heart' ? '#f19aa6' : '#ffd84a' });
+}
+function drawParts(){
+  const b = Math.max(2, Math.round(view.s / 2));   // 粒の1マス（実ピクセル）
+  for (const p of parts){
+    const a = Math.min(1, p.life / p.max * 2); ctx.globalAlpha = a;
+    if (p.kind === 'paw'){ const t = 1 - p.life / p.max, r = view.size * (.25 + t * .25) * DPR; ctx.strokeStyle = '#2a2523'; ctx.lineWidth = view.s * 2; ctx.beginPath();
+      ctx.arc(p.x * DPR, p.y * DPR, r, Math.PI * (1.1 + t * .6), Math.PI * (1.5 + t * .6)); ctx.stroke(); ctx.globalAlpha = 1; continue; }
+    const pat = PAT[p.kind]; const w = pat[0].length, X = Math.round(p.x * DPR - w * b / 2), Y = Math.round(p.y * DPR - pat.length * b / 2);
+    ctx.fillStyle = p.c; pat.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') ctx.fillRect(X + i * b, Y + j * b, b, b); }));
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- 描画 ----------
+let t0 = performance.now(), animT = 0;
+function frame(now){
+  const dt = Math.min(.05, (now - t0) / 1000); t0 = now; animT += dt;
+  update(dt);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = false;
+  const sx = shake > 0 ? Math.round((Math.random() - .5) * shake * 10) * DPR : 0, sy = shake > 0 ? Math.round((Math.random() - .5) * shake * 10) * DPR : 0;
+  const id = phase === 'ready' ? 'normal' : (S.form || 'normal');
+  const f = Math.floor(animT * 8) % 8;
+  const spr = sprite(id, f, S.coat, view.s);
+  const X = Math.round(view.ox * DPR) + sx, Y = Math.round(view.oy * DPR) + sy;
+  ctx.drawImage(spr, X, Y);
+  if (evoFlash > 0){ ctx.globalAlpha = evoFlash / .35 * .8; ctx.drawImage(sprite(id, f, S.coat, view.s, { silhouette:'#ffffff' }), X, Y); ctx.globalAlpha = 1; }
+  if (S.lock > 0){ ctx.globalAlpha = .25; ctx.fillStyle = '#d94b3d'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalAlpha = 1; }
+  drawParts();
+  if (DBG.on) dbgDraw();
+  requestAnimationFrame(frame);
+}
+
+// ---------- 判定と結果 ----------
+function fire(){
+  phase = 'firing'; ptr.id = null; if (AC){ setP(rustleG.gain, 0); setP(purrG.gain, 0); }
+  const fin = finalForm(S); resultInfo = { ...fin, sim:S };
+  setStatus('判定中…'); wipe(true);
+  setTimeout(() => { showResult(); wipe(false); }, 420);
+}
+function wipe(on){ $('wipe').classList.toggle('on', on); }
+const wipeEl = $('wipe'); for (let i = 0; i < 8; i++){ const s = document.createElement('i'); s.style.transitionDelay = (i * .025) + 's'; wipeEl.appendChild(s); }
+
+function topRegion(s){ let b = null; for (const [k, v] of Object.entries(s.regionDist)) if (!b || v > s.regionDist[b]) b = k; return s.regionDist[b] > 0 ? REGION_LABEL[b] : 'なし'; }
+let revealT = 0, cardPNG = null, skipReveal = false;
+function showResult(){
+  phase = 'result'; revealT = 0; cardPNG = null; skipReveal = false; $('result').classList.add('on'); $('rs').style.display = 'none'; setStatus('');
+  const fm = FORM(resultInfo.form); zRecord(resultInfo.form, S.coat);
+  setTint(fm.line); $('form').textContent = fm.name;
+  const t0r = performance.now(); let ticked = 0;
+  const step = () => {
+    const t = Math.max((performance.now() - t0r) / 1000, skipReveal ? .9 : 0); revealT = t;
+    if (t < .9 && Math.floor(t * 10) > ticked){ ticked = Math.floor(t * 10); sfx.tick(); }
+    drawCard(t);
+    if (t >= .9 && !resultInfo.revealed){ resultInfo.revealed = true; sfx.reveal(); }
+    if (t < 1.6 && phase === 'result') requestAnimationFrame(step); else if (phase === 'result'){ cardPNG = $('card').toDataURL('image/png'); }
+  };
+  document.fonts.load('40px DotGothic16').finally(() => requestAnimationFrame(step));
+}
+function drawCard(t){
+  const c = $('card'), x = c.getContext('2d'), CW = 1080, CH = 1440; const s = resultInfo.sim, fm = FORM(resultInfo.form), ln = LINE(fm.line);
+  x.imageSmoothingEnabled = false; x.fillStyle = style === 'std' ? ln.tint : STYLE_BG[style]; x.fillRect(0, 0, CW, CH);
+  const dark = style === 'fc' || style === 'crt' || style === 'neon'; const ink = dark ? '#f2ede6' : '#2a2523', sub = dark ? '#b8aea6' : '#7a6f68';
+  x.strokeStyle = ink; x.lineWidth = 12; x.strokeRect(24, 24, CW - 48, CH - 48);
+  x.fillStyle = ink; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  x.font = '44px DotGothic16'; x.fillStyle = sub; x.fillText(`10秒なでたら、うちの${COATS[s.coat].name}は…`, CW / 2, 120);
+  // 絵（48×16=768px）
+  const sc = 16, f = Math.floor(t * 8) % 8, revealed = t >= .9;
+  const g = render(fm.id, 48, f, s.coat); const img = drawStyled(g, sc, style, { noBg:true, silhouette: revealed ? null : ink });
+  const bounce = revealed ? Math.max(0, 1 - (t - .9) * 4) : 0;
+  x.drawImage(img, (CW - 768) / 2, 150 - bounce * 30);
+  // 名前
+  x.fillStyle = ink; x.font = '92px DotGothic16'; x.fillText(revealed ? fm.name : '？？？', CW / 2, 1010);
+  x.font = '38px DotGothic16'; x.fillStyle = sub;
+  const stageName = ['', '1段階', '2段階', '3段階', '最終', 'ミーム'][fm.stage] || '';
+  x.fillText(revealed ? `${ln.name}　${stageName}` : '判定中…', CW / 2, 1068);
+  if (revealed){
+    // なでた記録
+    const rows = [['なでた回数', `${s.nade + s.taps}回`], ['なでた距離', `${(s.dist * .0083).toFixed(2)}m`], ['いちばん', `${topRegion(s)}`], ['猫パンチ', `${s.punch}回`]];
+    x.font = '36px DotGothic16';
+    rows.forEach(([k, v], i) => { const cx = 150 + i * 260; x.fillStyle = sub; x.fillText(k, cx, 1150); x.fillStyle = ink; x.font = '48px DotGothic16'; x.fillText(v, cx, 1210); x.font = '36px DotGothic16'; });
+    x.fillStyle = ink; x.font = '36px DotGothic16'; x.fillText(resultInfo.why ? `決め手：${resultInfo.why}` : fm.desc, CW / 2, 1290);
+  }
+  x.font = '30px DotGothic16'; x.fillStyle = sub; x.textAlign = 'left'; x.fillText('#10秒なですぎ猫', 60, 1380);
+  x.textAlign = 'right'; const d = new Date(); x.fillText(`${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}　ver.${APP_VER}`, CW - 60, 1380);
+}
+function shareText(){ const fm = FORM(resultInfo.form); return `うちの${COATS[resultInfo.sim.coat].name}、10秒なでたら「${fm.name}」になりました（なで${resultInfo.sim.nade + resultInfo.sim.taps}回）\n\n#10秒なですぎ猫`; }
+async function pngFile(){ const url = cardPNG || $('card').toDataURL('image/png'); const b = await (await fetch(url)).blob(); return new File([b], 'nadesugi_neko.png', { type:'image/png' }); }
+const coarse = matchMedia('(pointer:coarse)').matches;
+async function shareX(){
+  sfx.click();
+  try { const file = await pngFile(); if (coarse && navigator.canShare && navigator.canShare({ files:[file] })){ await navigator.share({ files:[file], text:shareText() }); return; } } catch(e){ if (e && e.name === 'AbortError') return; }
+  try { const file = await pngFile(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': file })]); toast('画像をコピーしました。ポストに貼り付けてください'); } catch(e){}
+  window.open('https://x.com/intent/tweet?text=' + encodeURIComponent(shareText()), '_blank', 'noopener');
+}
+async function saveImg(){
+  sfx.click(); const file = await pngFile();
+  try { if (coarse && navigator.canShare && navigator.canShare({ files:[file] })){ await navigator.share({ files:[file] }); return; } } catch(e){ if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function retry(){
+  sfx.click(); wipe(true);
+  setTimeout(() => { $('result').classList.remove('on'); newRound(); wipe(false); }, 200);
+}
+let toastT = 0; function toast(t){ const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => el.style.display = 'none', 2600); }
+
+// ---------- 図鑑 ----------
+function zData(){ return LS.get('neko_zukan_v1', {}); }
+function zRecord(id, coat){ const z = zData(); if (!z[id]){ z[id] = { coat, d:Date.now() }; LS.set('neko_zukan_v1', z); LS.set('neko_zukan_new', true); markNew(); } }
+function markNew(){ const n = LS.get('neko_zukan_new', false); $('zbtn').classList.toggle('dot-new', n); $('zbtn2').classList.toggle('dot-new', n); }
+function zOpen(){
+  sfx.click(); LS.set('neko_zukan_new', false); markNew(); const z = zData(); const grid = $('zgrid'); grid.innerHTML = '';
+  const order = LINES.flatMap(l => FORMS.filter(f => f.line === l.key));
+  let got = 0;
+  for (const f of order){ const has = !!z[f.id]; if (has) got++;
+    const fig = document.createElement('figure'); fig.className = has ? '' : 'no';
+    const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+    x.drawImage(drawStyled(render(f.id, 48, 0, has ? z[f.id].coat : 'tora'), 2, 'std', { noBg:true, silhouette: has ? null : '#cfc5b8' }), 0, 0);
+    fig.appendChild(c); const cap = document.createElement('figcaption'); cap.textContent = has ? f.name : (LINE(f.line).how || '？'); fig.appendChild(cap); grid.appendChild(fig); }
+  $('zsum').textContent = `見つけた形態 ${got} / ${order.length}`;
+  $('zukan').classList.add('on');
+}
+
+// ---------- 遊び方 ----------
+function howBuild(){
+  const items = [['normal', '猫をなでる', 'ドラッグでなでなで。触った瞬間に10秒スタート'], ['liquid', 'なで方で進化が変わる', 'あご・耳・胴・お腹、速さ、毛並みの向き、長さ'], ['ikamimi', 'イライラさせすぎると猫パンチ', 'お腹・逆なで・速すぎに注意'], ['spin', '10秒後に判定', '特別ななで方をすると、ふしぎな姿に']];
+  const el = $('howList'); el.innerHTML = '';
+  for (const [id, a, b] of items){ const d = document.createElement('div'); const c = document.createElement('canvas'); c.width = c.height = 96; c.style.width = c.style.height = '64px';
+    const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(drawStyled(render(id, 48, 0, 'tora'), 2, 'std', { noBg:true }), 0, 0);
+    d.appendChild(c); const t = document.createElement('span'); t.innerHTML = `${a}<small>${b}</small>`; d.appendChild(t); el.appendChild(d); }
+}
+function hOpen(){ sfx.click(); $('howto').classList.add('on'); }
+$('howto').addEventListener('pointerdown', e => { e.stopPropagation(); $('howto').classList.remove('on'); LS.set('neko_howto_v1', 1); });
+
+// ---------- ボタン ----------
+for (const el of document.querySelectorAll('button, .ov')) el.addEventListener('pointerdown', e => e.stopPropagation());
+$('hbtn').onclick = hOpen;
+$('zbtn').onclick = zOpen; $('zbtn2').onclick = zOpen; $('zclose').onclick = () => { sfx.click(); $('zukan').classList.remove('on'); };
+$('zukan').addEventListener('click', e => { if (e.target.id === 'zukan') $('zukan').classList.remove('on'); });
+$('sbtn').onclick = () => { audioInit(); setSound(!sound); sfx.click(); };
+$('stbtn').onclick = () => { const i = STYLES.findIndex(s => s.id === style); style = STYLES[(i + 1) % STYLES.length].id; LS.set('neko_style', style); setTint(S.line); toast(`描き方：${STYLES.find(s => s.id === style).name}`); sfx.click(); };
+$('rs').onclick = () => retry();
+$('retry').onclick = retry; $('xbtn').onclick = shareX; $('save').onclick = saveImg;
+$('card').addEventListener('pointerdown', () => { if (revealT < .9) skipReveal = true; });
+
+// ---------- 作者用デバッグ（手元のファイルか localhost のときだけ） ----------
+const DBG = { on:false };
+if (/[?&]debug/.test(location.search) && (location.protocol === 'file:' || /^(localhost|127\.)/.test(location.hostname))) DBG.on = true;
+function dbgDraw(){
+  const s = S; const el = $('dbg'); el.style.display = 'block';
+  el.textContent = Object.entries(s.score).map(([k, v]) => `${k.padEnd(6)} ${v.toFixed(0).padStart(4)}`).join('\n') +
+    `\npurr ${s.purr.toFixed(0)} irr ${s.irr.toFixed(0)} punch ${s.punch}\ndist ${s.dist.toFixed(0)} strokes ${s.strokes} taps ${s.taps}\nstill ${s.still.toFixed(1)} spin ${(s.spin / 6.283).toFixed(1)} maxV ${s.maxV.toFixed(0)}\n→ ${s.form} / final ${finalForm(s).form}`;
+}
+
+// ---------- はじめ ----------
+setSound(sound); howBuild(); newRound(); resize(); markNew();
+if (!LS.get('neko_howto_v1', 0)) $('howto').classList.add('on');
+if (DBG.on){ const q = new URLSearchParams(location.search);
+  if (q.get('nohow') !== null) $('howto').classList.remove('on');
+  if (q.get('result')){ $('howto').classList.remove('on'); start(); S.dist = 412; S.strokes = 38; S.nade = 52; S.taps = 3; S.regionDist.chin = 300; S.t = P.time;
+    setTimeout(() => { phase = 'firing'; resultInfo = { form:q.get('result'), why:null, sim:S }; showResult(); }, 300); }
+  if (q.get('play')){ $('howto').classList.remove('on'); start(); const f = q.get('play'); S.form = f; prevForm = f; S.line = FORM(f).line; $('form').textContent = FORM(f).name; setTint(S.line); S.t = 4.2; S.purr = 72; S.irr = 30; S.score.melt = 230; S.score.yokai = 60; } }
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
