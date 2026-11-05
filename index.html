@@ -9,118 +9,108 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
 <style>
-  :root{ --ink:#2a2523; --sub:#7a6f68; --tint:#f7f1e8; --accent:#e0794a; --red:#d94b3d; --panel:#fffdf8;
-    --dot:"DotGothic16","Yu Gothic UI","Meiryo",sans-serif; }
+  :root{ --ink:#2a2523; --sub:#8a7f77; --panel:#fffdf8; --accent:#f08a5d; --line:#f08a5d;
+    --dot:"DotGothic16","Yu Gothic UI","Meiryo",sans-serif; --px:3px; }
   *{ box-sizing:border-box; }
   html,body{ margin:0; height:100%; overflow:hidden; touch-action:none; overscroll-behavior:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
-  body{ background:var(--tint); color:var(--ink); font-family:var(--dot); transition:background-color .5s; }
-  body.dark{ --ink:#f2ede6; --sub:#b8aea6; --panel:#1d1a24; }
+  body{ background-color:#f7f1e8; background-size:64px 64px; image-rendering:pixelated; color:var(--ink); font-family:var(--dot); transition:background-color .5s; }
+  body.dark{ --ink:#f2ede6; --sub:#b8aea6; }
   #stage{ position:fixed; inset:0; }
-  #cv{ position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; }
-  /* 上：HUD */
-  #hud{ position:absolute; left:0; right:0; top:0; padding:calc(10px + env(safe-area-inset-top)) 16px 0; text-align:center; pointer-events:none; }
-  #tline{ position:absolute; left:0; top:0; height:4px; background:var(--accent); width:100%; transform-origin:left; }
-  .row1{ display:flex; justify-content:space-between; font-size:14px; color:var(--sub); }
-  .row1 b{ font-weight:normal; color:var(--ink); font-variant-numeric:tabular-nums; }
-  .row1 b.hurry{ color:var(--red); }
-  #form{ font-size:clamp(28px, 9vw, 46px); line-height:1.2; margin-top:4px; letter-spacing:.04em; }
-  #status{ font-size:15px; min-height:1.4em; color:var(--sub); }
-  #status.alert{ color:var(--red); }
-  /* 下：系統ゲージ */
-  #ctrl{ position:absolute; left:0; right:0; bottom:0; padding:8px 16px calc(12px + env(safe-area-inset-bottom)); pointer-events:none; }
-  .moods{ display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; margin-bottom:8px; }
-  .lines{ display:grid; grid-template-columns:repeat(3, 1fr); gap:4px 12px; }
-  .g{ font-size:12px; color:var(--sub); }
-  .g .bar{ height:8px; border:2px solid var(--ink); margin-top:2px; background:var(--panel); }
-  .g .bar i{ display:block; height:100%; width:0; background:var(--c, var(--ink)); }
-  .g.lead{ color:var(--ink); }
-  /* ボタン（ドット風：角なし・太線） */
-  .btns{ position:absolute; left:0; right:0; display:flex; justify-content:center; gap:8px; }
-  #pre{ bottom:calc(150px + env(safe-area-inset-bottom)); }
-  button{ font-family:var(--dot); font-size:15px; color:var(--ink); background:var(--panel); border:2px solid var(--ink); border-radius:0; padding:7px 12px; box-shadow:3px 3px 0 var(--ink); cursor:pointer; touch-action:manipulation; }
-  button:active{ transform:translate(2px,2px); box-shadow:1px 1px 0 var(--ink); }
-  button.main{ background:var(--accent); color:#fff; font-size:18px; padding:10px 22px; }
-  .dot-new{ position:relative; } .dot-new::after{ content:""; position:absolute; right:-5px; top:-5px; width:9px; height:9px; background:var(--red); }
-  #rs{ position:absolute; right:12px; top:calc(40px + env(safe-area-inset-top)); display:none; font-size:12px; padding:4px 8px; box-shadow:2px 2px 0 var(--ink); }
+  #cv{ position:absolute; inset:0; width:100%; height:100%; }
+  /* ドット枠：角を1マス欠かせた太線（box-shadow で描く） */
+  .pxbox{ background:var(--panel); color:#2a2523;
+    box-shadow: 0 calc(-1 * var(--px)) 0 0 #2a2523, 0 var(--px) 0 0 #2a2523, calc(-1 * var(--px)) 0 0 0 #2a2523, var(--px) 0 0 0 #2a2523, 0 calc(var(--px) * 2.4) 0 0 rgba(42,37,35,.18); }
+  /* 名札（形態名＋段階の星） */
+  #tag{ position:absolute; left:50%; top:calc(20px + env(safe-area-inset-top)); transform:translateX(-50%); padding:6px 18px 4px; text-align:center; white-space:nowrap; pointer-events:none;
+    background:var(--line); color:#fff; transition:background-color .3s; }
+  #tag.pxbox{ background:var(--line); color:#fff; }
+  #form{ font-size:clamp(22px, 7vw, 32px); line-height:1.15; letter-spacing:.04em; text-shadow:0 2px 0 rgba(0,0,0,.18); }
+  #stars{ display:block; margin:2px auto 0; image-rendering:pixelated; }
+  #tag.pop{ animation:pop .35s steps(4); }
+  @keyframes pop{ 0%{ transform:translateX(-50%) scale(1.25); } 100%{ transform:translateX(-50%) scale(1); } }
+  #coat{ position:absolute; left:12px; top:calc(10px + env(safe-area-inset-top)); display:flex; flex-direction:column; gap:2px; align-items:center; font-size:12px; color:var(--sub); pointer-events:none; }
+  #coat img{ width:24px; height:24px; image-rendering:pixelated; }
+  /* アイコンボタン */
+  .ib{ width:52px; height:52px; padding:0; border:0; border-radius:0; display:grid; place-items:center; cursor:pointer; touch-action:manipulation; font-family:var(--dot); }
+  .ib img{ width:36px; height:36px; image-rendering:pixelated; pointer-events:none; }
+  .ib:active{ transform:translateY(var(--px)); }
+  .ib.main{ width:auto; padding:0 26px; background:var(--accent); }
+  .ib.main img{ width:42px; height:42px; }
+  .ib.new::after{ content:""; position:absolute; margin:-40px 0 0 40px; width:10px; height:10px; background:#e5484d; }
+  #pre{ position:absolute; left:0; right:0; display:flex; justify-content:center; gap:20px; }
+  #rs{ position:absolute; right:14px; top:calc(10px + env(safe-area-inset-top)); width:40px; height:40px; display:none; }
+  #rs img{ width:24px; height:24px; }
+  #ctrl{ position:absolute; left:0; right:0; bottom:0; height:calc(64px + env(safe-area-inset-bottom)); pointer-events:none; }
   /* 重ねる画面 */
-  .ov{ position:fixed; inset:0; display:none; background:rgba(20,16,14,.55); z-index:10; padding:calc(16px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom)); }
+  .ov{ position:fixed; inset:0; display:none; background:rgba(42,37,35,.6); z-index:10; padding:calc(18px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom)); }
   .ov.on{ display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .sheet{ background:var(--panel); border:3px solid var(--ink); box-shadow:6px 6px 0 rgba(0,0,0,.35); width:min(440px, 100%); max-height:100%; overflow:auto; padding:16px; color:var(--ink); }
-  .sheet h2{ margin:0 0 10px; font-weight:normal; font-size:22px; text-align:center; }
-  .how{ display:grid; gap:12px; }
-  .how div{ display:flex; gap:12px; align-items:center; font-size:15px; line-height:1.5; }
-  .how canvas{ flex:0 0 auto; image-rendering:pixelated; }
-  .how small{ color:var(--sub); font-size:12px; display:block; }
-  .ver{ margin-top:12px; font-size:11px; color:var(--sub); text-align:right; }
-  .ver a{ color:var(--sub); }
-  #zgrid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
-  #zgrid figure{ margin:0; text-align:center; font-size:10px; line-height:1.3; }
-  #zgrid canvas{ width:100%; image-rendering:pixelated; background:#f4efe6; border:2px solid var(--ink); }
-  #zgrid figure.no{ color:var(--sub); }
-  .zsum{ text-align:center; font-size:13px; color:var(--sub); margin:-4px 0 10px; }
-  #result .card{ width:auto; max-width:min(440px, 100%); max-height:calc(100% - 120px); aspect-ratio:3/4; border:3px solid var(--ink); background:#fff; box-shadow:6px 6px 0 rgba(0,0,0,.35); }
-  #result .rbtns{ display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; justify-content:center; }
-  #result .rbtns button{ min-width:64px; }
-  #result .rbtns button.main{ min-width:120px; }
-  #wipe{ position:fixed; inset:0; z-index:20; pointer-events:none; display:grid; grid-template-columns:repeat(8, 1fr); grid-auto-rows:1fr; }
-  #wipe i{ background:var(--ink); transform:scaleY(0); transform-origin:top; transition:transform .16s steps(4); }
+  .sheet{ width:min(420px, 100%); max-height:100%; overflow:auto; padding:18px 16px; }
+  .how{ display:grid; gap:18px; justify-items:center; text-align:center; font-size:18px; }
+  .how canvas{ image-rendering:pixelated; display:block; margin:0 auto 4px; }
+  .ver{ margin-top:14px; font-size:11px; color:#8a7f77; text-align:center; }
+  .ver a{ color:#8a7f77; }
+  .zhead{ display:flex; justify-content:center; align-items:center; gap:10px; font-size:22px; margin-bottom:12px; }
+  .zhead img{ width:36px; height:36px; image-rendering:pixelated; }
+  .zrow{ display:flex; gap:8px; align-items:flex-start; margin-bottom:10px; }
+  .zrow > img{ width:24px; height:24px; image-rendering:pixelated; margin-top:16px; flex:0 0 auto; }
+  .zrow .zg{ display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; flex:1; }
+  .zg figure{ margin:0; text-align:center; font-size:10px; line-height:1.25; color:#2a2523; }
+  .zg canvas{ width:100%; image-rendering:pixelated; display:block; }
+  .zclose{ display:flex; justify-content:center; margin-top:8px; }
+  #result .card{ display:block; width:auto; height:auto; max-width:min(400px, 100%); max-height:calc(100% - 96px); aspect-ratio:3/4; }
+  #result .rbtns{ display:flex; gap:18px; margin-top:22px; align-items:center; }
+  #wipe{ position:fixed; inset:0; z-index:20; pointer-events:none; display:grid; grid-template-columns:repeat(8, 1fr); }
+  #wipe i{ background:#2a2523; transform:scaleY(0); transform-origin:top; transition:transform .16s steps(4); }
   #wipe.on i{ transform:scaleY(1); }
-  #toast{ position:fixed; left:50%; bottom:calc(90px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--ink); color:var(--panel); padding:8px 14px; font-size:14px; z-index:30; display:none; white-space:nowrap; }
+  #toast{ position:fixed; left:50%; bottom:calc(110px + env(safe-area-inset-bottom)); transform:translateX(-50%); padding:8px 14px; font-size:14px; z-index:30; display:none; white-space:nowrap; }
   #dbg{ position:fixed; left:4px; top:120px; z-index:40; font:11px/1.35 ui-monospace,Consolas,monospace; background:rgba(0,0,0,.72); color:#cfe; padding:6px 8px; white-space:pre; pointer-events:none; display:none; }
 </style>
 </head>
 <body>
 <div id="stage">
   <canvas id="cv"></canvas>
-  <div id="tline"></div>
-  <div id="hud">
-    <div class="row1"><span id="lineName">今日の猫：茶トラ</span><span>残り <b id="time">10.00</b></span></div>
-    <div id="form">ふつうの猫</div>
-    <div id="status">猫をなでると はじまる</div>
+  <div id="coat"><img id="coatIco" alt=""><span id="coatName"></span></div>
+  <div id="tag" class="pxbox"><div id="form">ふつうの猫</div><canvas id="stars" width="60" height="12"></canvas></div>
+  <button id="rs" class="ib pxbox" aria-label="やり直す"><img data-ico="retry" alt=""></button>
+  <div id="pre">
+    <button class="ib pxbox" id="hbtn" aria-label="遊び方"><img data-ico="help" alt=""></button>
+    <button class="ib pxbox" id="zbtn" aria-label="図鑑"><img data-ico="book" alt=""></button>
+    <button class="ib pxbox" id="stbtn" aria-label="描き方"><img data-ico="tiles" alt=""></button>
+    <button class="ib pxbox" id="sbtn" aria-label="音"><img id="sIco" data-ico="sound" alt=""></button>
   </div>
-  <button id="rs">やり直す</button>
-  <div class="btns" id="pre">
-    <button id="hbtn">遊び方</button><button id="zbtn">図鑑</button><button id="stbtn">描き方</button><button id="sbtn">音 ON</button>
-  </div>
-  <div id="ctrl">
-    <div class="moods">
-      <div class="g"><span>ゴロゴロ</span><div class="bar"><i id="mPurr" style="--c:#e0794a"></i></div></div>
-      <div class="g"><span>イライラ</span><div class="bar"><i id="mIrr" style="--c:#d94b3d"></i></div></div>
-    </div>
-    <div class="lines" id="lines"></div>
-  </div>
+  <div id="ctrl"></div>
 </div>
 
-<div class="ov" id="howto"><div class="sheet">
-  <h2>遊び方</h2>
+<div class="ov" id="howto"><div class="sheet pxbox">
   <div class="how" id="howList"></div>
-  <p style="text-align:center;margin:14px 0 0;color:var(--sub);font-size:13px">どこを触っても閉じます</p>
-  <div class="ver">わた｜ver. 0.1.0　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
+  <div class="ver">わた｜ver. 0.2.0　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
 </div></div>
 
-<div class="ov" id="zukan"><div class="sheet">
-  <h2>図鑑</h2>
-  <div class="zsum" id="zsum"></div>
+<div class="ov" id="zukan"><div class="sheet pxbox">
+  <div class="zhead"><img data-ico="book" alt=""><span id="zsum"></span></div>
   <div id="zgrid"></div>
-  <p style="text-align:center;margin:12px 0 0"><button id="zclose">閉じる</button></p>
+  <div class="zclose"><button class="ib pxbox" id="zclose" aria-label="閉じる"><img data-ico="close" alt=""></button></div>
 </div></div>
 
 <div class="ov" id="result">
-  <canvas class="card" id="card" width="1080" height="1440"></canvas>
+  <canvas class="card pxbox" id="card" width="1080" height="1440"></canvas>
   <div class="rbtns">
-    <button id="xbtn">ポスト</button><button id="save">保存</button><button id="zbtn2">図鑑</button><button id="retry" class="main">もう一回</button>
+    <button class="ib pxbox" id="xbtn" aria-label="ポスト"><img data-ico="share" alt=""></button>
+    <button class="ib pxbox" id="save" aria-label="保存"><img data-ico="save" alt=""></button>
+    <button class="ib pxbox" id="zbtn2" aria-label="図鑑"><img data-ico="book" alt=""></button>
+    <button class="ib pxbox main" id="retry" aria-label="もう一回"><img data-ico="retryW" alt=""></button>
   </div>
 </div>
 
 <div id="wipe"></div>
-<div id="toast"></div>
+<div id="toast" class="pxbox"></div>
 <div id="dbg"></div>
 
 <script src="sprites.js"></script>
 <script>
 'use strict';
 const { FORMS, LINES, COATS, STYLES, STYLE_BG, render, drawStyled } = CatSprites;
-const APP_VER = '0.1.0';
+const APP_VER = '0.2.0';
 
 /*SIM-START*/
 // ---------- 調整用の数値（ここだけ触れば手ざわりが変わる） ----------
@@ -247,23 +237,87 @@ function finalForm(s){
 }
 /*SIM-END*/
 
+// ---------- アイコン（12×12 のドット。# は指定色、英字は別色） ----------
+const ICONS = {
+  heart:['............','..##....##..','.####..####.','############','############','############','.##########.','..########..','...######...','....####....','.....##.....','............'],
+  melt:['.....##.....','.....##.....','....####....','....####....','...######...','..########..','..########..','.##########.','.##########.','.##########.','..########..','...######...'],
+  long:['.....##.....','....####....','...######...','..##.##.##..','.....##.....','.....##.....','.....##.....','.....##.....','..##.##.##..','...######...','....####....','.....##.....'],
+  yokai:['.....##.....','.....##.....','....####....','....####....','..########..','############','############','..########..','....####....','....####....','.....##.....','.....##.....'],
+  elec:['......####..','.....####...','....####....','...####.....','..#########.','.#########..','.....####...','....####....','...####.....','..###.......','.##.........','............'],
+  angry:['............','..##....##..','..##....##..','####....####','####....####','............','............','####....####','####....####','..##....##..','..##....##..','............'],
+  idle:['.#........#.','..#......#..','...#....#...','.##########.','.##########.','.##########.','.####..####.','.##########.','.##########.','.##########.','.##########.','............'],
+  meme:['..########..','.##########.','###..##..###','###..##..###','############','############','##.######.##','###.####.###','.###....###.','..########..','............','............'],
+  secret:['....####....','...######...','..##....##..','........##..','.......##...','......##....','.....##.....','.....##.....','............','.....##.....','.....##.....','............'],
+  paw:['............','..##....##..','..##....##..','............','##..####..##','##.######.##','...######...','..########..','..########..','...######...','............','............'],
+  star:['.....##.....','....####....','....####....','############','.##########.','..########..','...######...','..########..','..###..###..','.##......##.','............','............'],
+  ruler:['............','............','............','..#......#..','.##......##.','############','############','.##......##.','..#......#..','............','............','............'],
+  pin:['...######...','..########..','.###....###.','.###....###.','.###....###.','..########..','...######...','....####....','.....##.....','............','............','............'],
+  claw:['............','#...#...#...','##..##..##..','.##..##..##.','..##..##..##','...##..##..#','....#...#...','............','............','............','............','............'],
+  help:['....####....','...######...','..##....##..','........##..','.......##...','......##....','.....##.....','.....##.....','............','.....##.....','.....##.....','............'],
+  book:['............','.####..####.','#....##....#','#.##.##.##.#','#....##....#','#.##.##.##.#','#....##....#','#.##.##.##.#','#....##....#','.####..####.','............','............'],
+  tiles:['............','.aaaa..bbbb.','.aaaa..bbbb.','.aaaa..bbbb.','.aaaa..bbbb.','............','............','.cccc..dddd.','.cccc..dddd.','.cccc..dddd.','.cccc..dddd.','............'],
+  sound:['............','............','....##...#..','...###....#.','#####..#..#.','#####...#.#.','#####...#.#.','#####..#..#.','...###....#.','....##...#..','............','............'],
+  mute:['............','............','....##......','...###......','#####..#..#.','#####...##..','#####...##..','#####..#..#.','...###......','....##......','............','............'],
+  retry:['....####....','..##....#...','.#.......#.#','#.........##','#........###','#...........','#..........#','#..........#','.#........#.','..##....##..','....####....','............'],
+  share:['.....##.....','....####....','...######...','..##.##.##..','.....##.....','.....##.....','.....##.....','#....##....#','#..........#','#..........#','############','............'],
+  save:['.....##.....','.....##.....','.....##.....','.....##.....','..##.##.##..','...######...','....####....','#....##....#','#..........#','#..........#','############','............'],
+  close:['............','.##......##.','.###....###.','..###..###..','...######...','....####....','....####....','...######...','..###..###..','.###....###.','.##......##.','............'],
+};
+ICONS.retryW = ICONS.retry;
+const TILE_COLORS = { a:'#f08a5d', b:'#6fb3e0', c:'#9a7fd6', d:'#e6b800' };
+function drawIcon(x, name, X, Y, b, color, opt = {}){
+  const rows = ICONS[name]; const fillRow = opt.fill === undefined ? -1 : 12 * (1 - opt.fill);
+  rows.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '.') return;
+    let c = ch === '#' ? color : (TILE_COLORS[ch] || color);
+    if (opt.fill !== undefined) c = j >= fillRow - 1e-9 ? color : opt.base;
+    x.fillStyle = c; x.fillRect(X + i * b, Y + j * b, b, b); }));
+}
+const icoCache = {};
+function iconURL(name, color = '#2a2523', b = 3){ const k = name + color + b; if (icoCache[k]) return icoCache[k];
+  const c = document.createElement('canvas'); c.width = c.height = 12 * b; drawIcon(c.getContext('2d'), name, 0, 0, b, color); return icoCache[k] = c.toDataURL(); }
+function paintIcons(root = document){ for (const im of root.querySelectorAll('img[data-ico]')){ const n = im.dataset.ico; im.src = iconURL(n, n === 'retryW' ? '#ffffff' : '#2a2523'); } }
+
 // ---------- 画面 ----------
 const $ = id => document.getElementById(id);
 const cv = $('cv'), ctx = cv.getContext('2d');
 const LS = { get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch(e){ return d; } }, set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} } };
 const FORM = id => FORMS.find(f => f.id === id);
 const LINE = key => LINES.find(l => l.key === key);
-const SYS_LABEL = { melt:'とろけ', long:'のびる', yokai:'妖', elec:'帯電', angry:'怒り', idle:'放置' };
-const SYS_COLOR = { melt:'#6fb3e0', long:'#c9a25a', yokai:'#9a7fd6', elec:'#e6b800', angry:'#d94b3d', idle:'#9b8f84' };
+const LINE_COLOR = { start:'#f08a5d', melt:'#5aa7dc', long:'#c99a3e', yokai:'#9a7fd6', elec:'#e0a800', angry:'#e5484d', idle:'#9b8f84', secret:'#5b5fc7', meme:'#4fb878' };
+const METERS = [['heart', 'purr', '#f28fa0'], ['melt', 'melt'], ['long', 'long'], ['yokai', 'yokai'], ['elec', 'elec'], ['angry', 'angry'], ['idle', 'idle']];
 const REGION_LABEL = { ear:'耳', head:'頭', chin:'あご', body:'胴', belly:'お腹' };
 
 let style = LS.get('neko_style', 'std'); if (!STYLES.find(s => s.id === style)) style = 'std';
 let sound = LS.get('neko_sound', true);
-let S, phase = 'ready', view = { s:6, ox:0, oy:0 }, shake = 0, parts = [], evoFlash = 0, prevForm = 'normal', resultInfo = null;
+let S, phase = 'ready', view = { s:6, ox:0, oy:0, size:288 }, ui = { b:3, mY:0 }, shake = 0, parts = [], evoFlash = 0, prevForm = 'normal', resultInfo = null, bubble = 0;
 
-// 線のゲージ
-const linesEl = $('lines'); const bars = {};
-for (const k of [...SYS, 'idle']){ const d = document.createElement('div'); d.className = 'g'; d.innerHTML = `<span>${SYS_LABEL[k]}</span><div class="bar"><i style="--c:${SYS_COLOR[k]}"></i></div>`; linesEl.appendChild(d); bars[k] = { el:d, i:d.querySelector('i') }; }
+// 背景の肉球柄（色ごとに作る）
+const bgCache = {};
+function pawBg(tint){
+  if (bgCache[tint]) return bgCache[tint];
+  const c = document.createElement('canvas'); c.width = c.height = 16; const x = c.getContext('2d');
+  const n = parseInt(tint.slice(1), 16), dk = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * .94));
+  x.fillStyle = `rgb(${dk})`;
+  for (const [ox, oy] of [[2, 3], [10, 11]]){ x.fillRect(ox + 1, oy + 2, 3, 2); x.fillRect(ox, oy, 1, 1); x.fillRect(ox + 2, oy - 1, 1, 1); x.fillRect(ox + 4, oy, 1, 1); }
+  return bgCache[tint] = `url(${c.toDataURL()})`;
+}
+function setTint(line){
+  const dark = style === 'fc' || style === 'crt' || style === 'neon';
+  document.body.classList.toggle('dark', dark);
+  const tint = style === 'std' ? (LINE(line) || LINE('start')).tint : STYLE_BG[style];
+  document.body.style.backgroundColor = tint; document.body.style.backgroundImage = dark ? 'none' : pawBg(tint);
+  document.documentElement.style.setProperty('--line', LINE_COLOR[line] || LINE_COLOR.start);
+}
+function drawStars(n, icon){
+  const c = $('stars'), x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height);
+  if (icon){ c.width = 12; drawIcon(x, icon, 0, 0, 1, '#ffffff'); return; }
+  c.width = 4 * 15 - 3; for (let i = 0; i < 4; i++) drawIcon(x, 'star', i * 15, 0, 1, i < n ? '#ffffff' : 'rgba(255,255,255,.32)');
+}
+function setTag(id){
+  const fm = FORM(id); $('form').textContent = fm.name;
+  if (fm.stage >= 1 && fm.stage <= 4) drawStars(fm.stage); else if (fm.stage === 5) drawStars(0, 'meme'); else if (fm.line === 'secret') drawStars(0, 'secret'); else drawStars(0);
+  const t = $('tag'); t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop');
+}
 
 // ---------- 絵のキャッシュ ----------
 const cache = new Map();
@@ -278,7 +332,12 @@ let W = 0, H = 0, DPR = 1;
 function resize(){
   DPR = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight;
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-  const top = $('hud').getBoundingClientRect().bottom + 8, bottom = $('ctrl').getBoundingClientRect().top - 8;
+  // 下のゲージ：7つのアイコンが横に収まる大きさ（1マス b 実ピクセル）
+  ui.b = Math.max(2, Math.min(4 * DPR, Math.floor((W - 32) * DPR / (7 * 12 + 6 * 5))));
+  const ctrl = $('ctrl').getBoundingClientRect(); ui.mY = ctrl.top;
+  const pre = $('pre'); const preH = 64; pre.style.top = (ui.mY - preH - 6) + 'px';
+  ui.timerY = $('tag').getBoundingClientRect().bottom + 14;
+  const top = ui.timerY + 12 * Math.max(2, Math.round(DPR * 1.5)) / DPR + 12, bottom = ui.mY - preH - 14;
   const avail = Math.min(W - 24, bottom - top);
   const s = Math.max(2, Math.floor(avail * DPR / 48));   // 実ピクセルで整数倍（ドットを崩さない）
   view.s = s; view.size = 48 * s / DPR; view.ox = (W - view.size) / 2; view.oy = top + (bottom - top - view.size) / 2;
@@ -319,15 +378,14 @@ const sfx = {
   reveal(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, 'square', .09, 0, i * .08)); },
   click(){ tone(700, .03, 'triangle', .08); },
 };
-function setSound(on){ sound = on; LS.set('neko_sound', on); $('sbtn').textContent = on ? '音 ON' : '音 OFF'; if (master) setP(master.gain, on ? .9 : 0); }
+function setSound(on){ sound = on; LS.set('neko_sound', on); $('sIco').dataset.ico = on ? 'sound' : 'mute'; paintIcons($('sbtn')); if (master) setP(master.gain, on ? .9 : 0); }
 
 // ---------- 入力 ----------
 const ptr = { id:null, x:0, y:0, t:0 };
 function toUV(x, y){ return [(x - view.ox) / view.size * 48, (y - view.oy) / view.size * 48]; }
 cv.addEventListener('pointerdown', e => {
   audioInit(); if (AC && AC.state === 'suspended') AC.resume();
-  if (phase === 'result' || phase === 'firing') return;
-  if (ptr.id !== null) return;
+  if (phase === 'result' || phase === 'firing' || ptr.id !== null) return;
   const [u, v] = toUV(e.clientX, e.clientY);
   if (phase === 'ready'){ if (!region(u, v)) return; start(); }
   cv.setPointerCapture(e.pointerId); ptr.id = e.pointerId; ptr.x = e.clientX; ptr.y = e.clientY; ptr.t = performance.now();
@@ -345,7 +403,7 @@ cv.addEventListener('pointermove', e => {
   if (sp > P.fast && Math.random() < d * .05) spawn('spark', e.clientX, e.clientY);
   ptr.x = e.clientX; ptr.y = e.clientY; ptr.t = now;
 });
-function endPtr(e){ if (e.pointerId !== ptr.id) return; ptr.id = null; if (phase === 'play'){ const [u, v] = toUV(e.clientX, e.clientY); const taps = S.taps; simUp(S, u, v); if (S.taps > taps) sfx.tap(); } if (AC) setP(rustleG.gain, 0, .05); }
+function endPtr(e){ if (e.pointerId !== ptr.id) return; ptr.id = null; if (phase === 'play'){ const [u, v] = toUV(e.clientX, e.clientY); const taps = S.taps; simUp(S, u, v); if (S.taps > taps){ sfx.tap(); spawn('ring', e.clientX, e.clientY); } } if (AC) setP(rustleG.gain, 0, .05); }
 cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr); cv.addEventListener('lostpointercapture', endPtr);
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('gesturestart', e => e.preventDefault());
@@ -354,41 +412,27 @@ addEventListener('keydown', e => { if (e.key === 'Enter' && phase === 'result') 
 // ---------- 進行 ----------
 function newRound(){
   const coats = Object.keys(COATS); const coat = coats[Math.floor(Math.random() * coats.length)];
-  S = newSim(coat); phase = 'ready'; prevForm = 'normal'; parts = []; shake = 0; evoFlash = 0;
-  $('lineName').textContent = `今日の猫：${COATS[coat].name}`; $('form').textContent = 'ふつうの猫'; setStatus('猫をなでると はじまる');
-  $('time').textContent = P.time.toFixed(2); $('time').classList.remove('hurry'); $('tline').style.transform = 'scaleX(1)';
-  $('pre').style.display = 'flex'; $('rs').style.display = 'none'; setTint('start');
+  S = newSim(coat); phase = 'ready'; prevForm = 'normal'; parts = []; shake = 0; evoFlash = 0; bubble = 0;
+  $('coatIco').src = iconURL('paw', COATS[coat].map.F === '#fbf8f3' ? '#d8cfc3' : COATS[coat].map.F); $('coatName').textContent = COATS[coat].name;
+  setTag('normal'); $('pre').style.display = 'flex'; $('rs').style.display = 'none'; setTint('start');
 }
-function start(){ S.started = true; phase = 'play'; $('pre').style.display = 'none'; $('rs').style.display = 'block'; setStatus('なでなで…'); }
-function setStatus(t, alert){ const el = $('status'); el.textContent = t; el.classList.toggle('alert', !!alert); }
-function setTint(line){
-  const dark = style === 'fc' || style === 'crt' || style === 'neon';
-  document.body.classList.toggle('dark', dark);
-  document.body.style.backgroundColor = style === 'std' ? (LINE(line) || LINE('start')).tint : STYLE_BG[style];
-}
-function onPunch(){ sfx.punch(); shake = 1; setStatus('猫パンチ！ ちょっと待って', true); spawn('paw'); if (navigator.vibrate && sound) navigator.vibrate([40, 30, 60]); }
-let lastTick = 0, vibT = 0;
+function start(){ S.started = true; phase = 'play'; $('pre').style.display = 'none'; $('rs').style.display = 'grid'; }
+function onPunch(){ sfx.punch(); shake = 1; bubble = .9; spawn('paw'); if (navigator.vibrate && sound) navigator.vibrate([40, 30, 60]); }
+let lastTick = -1, vibT = 0;
 function update(dt){
   if (phase === 'play'){
-    const before = S.form; simTick(S, dt);
-    if (S.form && S.form !== prevForm){ prevForm = S.form; evoFlash = .35; sfx.evo(); shake = Math.max(shake, .4); $('form').textContent = FORM(S.form).name; setTint(S.line);
-      for (let i = 0; i < 10; i++) spawn('puff'); }
-    const left = P.time - S.t; $('time').textContent = left.toFixed(2); $('time').classList.toggle('hurry', left < 3); $('tline').style.transform = `scaleX(${left / P.time})`;
-    if (left < 3 && Math.floor(left) !== lastTick){ lastTick = Math.floor(left); sfx.tick(); }
-    if (S.lock <= 0){ if (S.irr > 70) setStatus('イライラしてる…', true); else if (S.purr > 70) setStatus('ゴロゴロゴロ…'); else if (!S.down) setStatus('（なでられ待ち）'); else setStatus('なでなで…'); }
+    simTick(S, dt);
+    if (S.form && S.form !== prevForm){ prevForm = S.form; evoFlash = .35; sfx.evo(); shake = Math.max(shake, .4); setTag(S.form); setTint(S.line); for (let i = 0; i < 10; i++) spawn('puff'); }
+    const left = P.time - S.t; if (left < 3 && Math.ceil(left) !== lastTick){ lastTick = Math.ceil(left); sfx.tick(); }
     if (S.purr > 50 && S.down && navigator.vibrate && sound && (vibT -= dt) <= 0){ navigator.vibrate(12); vibT = .14; }
     if (S.over) fire();
   }
   if (AC){ const on = phase === 'play' && S.down && S.lock <= 0; setP(purrG.gain, sound && on ? S.purr / 100 * .5 : 0, .15); setP(purrLfo.frequency, 20 + S.purr * .06); }
-  shake = Math.max(0, shake - dt * 2.5); evoFlash = Math.max(0, evoFlash - dt);
+  shake = Math.max(0, shake - dt * 2.5); evoFlash = Math.max(0, evoFlash - dt); bubble = Math.max(0, bubble - dt);
   parts = parts.filter(p => (p.life -= dt) > 0); for (const p of parts){ p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; }
-  // ゲージ
-  $('mPurr').style.width = (S.purr) + '%'; $('mIrr').style.width = Math.min(100, S.irr) + '%';
-  const lead = S.line;
-  for (const k of [...SYS, 'idle']){ const th = k === 'idle' ? P.idleStage[2] : P.stage[3]; bars[k].i.style.width = Math.min(100, S.score[k] / th * 100) + '%'; bars[k].el.classList.toggle('lead', k === lead); }
 }
 
-// ---------- 粒（ドットの形） ----------
+// ---------- 粒 ----------
 const PAT = {
   heart:['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'],
   spark:['..#..', '..#..', '##.##', '..#..', '..#..'],
@@ -396,19 +440,65 @@ const PAT = {
 };
 function spawn(kind, x, y){
   if (kind === 'paw'){ parts.push({ kind, x:view.ox + view.size / 2, y:view.oy + view.size * .55, vx:0, vy:0, g:0, life:.45, max:.45 }); return; }
+  if (kind === 'ring'){ parts.push({ kind, x, y, vx:0, vy:0, g:0, life:.35, max:.35 }); return; }
   if (kind === 'puff'){ const a = Math.random() * Math.PI * 2, r = view.size * .35; x = view.ox + view.size / 2 + Math.cos(a) * r * .6; y = view.oy + view.size / 2 + Math.sin(a) * r * .6;
     parts.push({ kind, x, y, vx:Math.cos(a) * 120, vy:Math.sin(a) * 120, g:0, life:.5, max:.5, c:'#ffffff' }); return; }
-  parts.push({ kind, x, y, vx:(Math.random() - .5) * 60, vy:-60 - Math.random() * 60, g:kind === 'spark' ? 200 : -20, life:.8, max:.8, c: kind === 'heart' ? '#f19aa6' : '#ffd84a' });
+  parts.push({ kind, x, y, vx:(Math.random() - .5) * 60, vy:-60 - Math.random() * 60, g:kind === 'spark' ? 200 : -20, life:.8, max:.8, c: kind === 'heart' ? '#f28fa0' : '#ffd84a' });
 }
+function pxRing(cx, cy, r, b, col){ ctx.fillStyle = col; const n = Math.max(12, Math.round(r * 6.28 / b)); for (let i = 0; i < n; i++){ const a = i / n * 6.283; ctx.fillRect(Math.round((cx + Math.cos(a) * r) / b) * b, Math.round((cy + Math.sin(a) * r) / b) * b, b, b); } }
 function drawParts(){
-  const b = Math.max(2, Math.round(view.s / 2));   // 粒の1マス（実ピクセル）
+  const b = Math.max(2, Math.round(view.s / 2));
   for (const p of parts){
     const a = Math.min(1, p.life / p.max * 2); ctx.globalAlpha = a;
     if (p.kind === 'paw'){ const t = 1 - p.life / p.max, r = view.size * (.25 + t * .25) * DPR; ctx.strokeStyle = '#2a2523'; ctx.lineWidth = view.s * 2; ctx.beginPath();
       ctx.arc(p.x * DPR, p.y * DPR, r, Math.PI * (1.1 + t * .6), Math.PI * (1.5 + t * .6)); ctx.stroke(); ctx.globalAlpha = 1; continue; }
+    if (p.kind === 'ring'){ pxRing(p.x * DPR, p.y * DPR, (1 - p.life / p.max) * 26 * DPR + 6, b, '#ffffff'); ctx.globalAlpha = 1; continue; }
     const pat = PAT[p.kind]; const w = pat[0].length, X = Math.round(p.x * DPR - w * b / 2), Y = Math.round(p.y * DPR - pat.length * b / 2);
     ctx.fillStyle = p.c; pat.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') ctx.fillRect(X + i * b, Y + j * b, b, b); }));
   }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- 画面の中の UI（すべてドット） ----------
+function drawTimer(){
+  const b = Math.max(2, Math.round(DPR * 1.5)), gap = 3 * b, w = 10 * 12 * b + 9 * gap;
+  const X0 = Math.round((cv.width - w) / 2), Y = Math.round(ui.timerY * DPR);
+  const left = phase === 'ready' ? P.time : Math.max(0, P.time - S.t), n = Math.ceil(left - 1e-6);
+  const hurry = phase === 'play' && left < 3;
+  for (let i = 0; i < 10; i++){
+    const on = i < n, last = i === n - 1;
+    let col = on ? (hurry ? '#e5484d' : 'var') : 'rgba(42,37,35,.14)';
+    if (col === 'var') col = getComputedStyle(document.documentElement).getPropertyValue('--line').trim() || '#f08a5d';
+    if (on && last && phase === 'play' && (left % 1) < .35 && Math.floor(animT * 6) % 2) col = 'rgba(42,37,35,.25)';
+    drawIcon(ctx, 'paw', X0 + i * (12 * b + gap), Y, b, col);
+  }
+}
+function drawMeters(){
+  const b = ui.b, gap = 5 * b, w = 7 * 12 * b + 6 * gap, X0 = Math.round((cv.width - w) / 2), Y = Math.round(ui.mY * DPR);
+  const lead = S.line;
+  METERS.forEach(([ico, key, c], i) => {
+    const val = key === 'purr' ? S.purr / 100 : Math.min(1, S.score[key] / (key === 'idle' ? P.idleStage[2] : P.stage[3]));
+    const col = c || LINE_COLOR[key]; const bounce = key === lead && phase === 'play' ? -Math.round(Math.abs(Math.sin(animT * 8)) * 2) * b : 0;
+    drawIcon(ctx, ico, X0 + i * (12 * b + gap), Y + bounce, b, col, { fill:val, base:'rgba(42,37,35,.13)' });
+  });
+}
+function drawAnger(){
+  if (phase !== 'play' || S.irr < 25 || S.form === 'ikamimi') return;
+  const k = Math.min(1, (S.irr - 25) / 60), b = Math.max(2, Math.round(view.s * (.4 + k * .5)));
+  const pulse = S.irr > 70 && Math.floor(animT * 8) % 2 ? b : 0;
+  const X = Math.round((view.ox + view.size * .86) * DPR - 6 * b), Y = Math.round((view.oy + view.size * .04) * DPR) - pulse;
+  drawIcon(ctx, 'angry', X, Y, b, '#e5484d');
+}
+function drawBubble(){
+  if (bubble <= 0) return; const b = Math.max(2, Math.round(view.s / 2));
+  const X = Math.round((view.ox + view.size / 2) * DPR), Y = Math.round((view.oy - 4) * DPR);
+  ctx.font = `${Math.round(view.s * 5)}px DotGothic16`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.lineWidth = b * 2; ctx.strokeStyle = '#ffffff'; ctx.strokeText('シャーッ！', X, Y); ctx.fillStyle = '#e5484d'; ctx.fillText('シャーッ！', X, Y);
+}
+function drawHint(){
+  if (phase !== 'ready') return; const b = Math.max(2, Math.round(view.s / 2));
+  const cx = (view.ox + view.size / 2) * DPR, cy = (view.oy + view.size * 24 / 48) * DPR;
+  for (let k = 0; k < 2; k++){ const t = (animT * .9 + k / 2) % 1; ctx.globalAlpha = 1 - t; pxRing(cx, cy, (8 + t * 30) * view.s / 6 * DPR / DPR, b, '#ffffff'); }
   ctx.globalAlpha = 1;
 }
 
@@ -418,15 +508,16 @@ function frame(now){
   const dt = Math.min(.05, (now - t0) / 1000); t0 = now; animT += dt;
   update(dt);
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = false;
-  const sx = shake > 0 ? Math.round((Math.random() - .5) * shake * 10) * DPR : 0, sy = shake > 0 ? Math.round((Math.random() - .5) * shake * 10) * DPR : 0;
-  const id = phase === 'ready' ? 'normal' : (S.form || 'normal');
-  const f = Math.floor(animT * 8) % 8;
-  const spr = sprite(id, f, S.coat, view.s);
+  const jit = S.irr > 70 && phase === 'play' ? (Math.floor(animT * 20) % 2 ? 1 : -1) * Math.max(1, view.s / 3 | 0) : 0;
+  const sx = (shake > 0 ? Math.round((Math.random() - .5) * shake * 10) * DPR : 0) + jit, sy = shake > 0 ? Math.round((Math.random() - .5) * shake * 10) * DPR : 0;
+  const id = phase === 'ready' ? 'normal' : (S.form || 'normal'), f = Math.floor(animT * 8) % 8;
   const X = Math.round(view.ox * DPR) + sx, Y = Math.round(view.oy * DPR) + sy;
-  ctx.drawImage(spr, X, Y);
+  // 足元の影
+  ctx.fillStyle = 'rgba(42,37,35,.10)'; const sh = view.s; for (let i = -14; i < 14; i++){ const w = Math.sqrt(1 - (i / 14) ** 2); ctx.fillRect(Math.round(view.ox * DPR + view.size * DPR / 2 + i * sh), Math.round(view.oy * DPR + 45 * sh), sh, Math.max(sh, Math.round(w * 2) * sh)); }
+  ctx.drawImage(sprite(id, f, S.coat, view.s), X, Y);
   if (evoFlash > 0){ ctx.globalAlpha = evoFlash / .35 * .8; ctx.drawImage(sprite(id, f, S.coat, view.s, { silhouette:'#ffffff' }), X, Y); ctx.globalAlpha = 1; }
-  if (S.lock > 0){ ctx.globalAlpha = .25; ctx.fillStyle = '#d94b3d'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalAlpha = 1; }
-  drawParts();
+  if (S.lock > 0){ ctx.globalAlpha = .18; ctx.fillStyle = '#e5484d'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalAlpha = 1; }
+  drawHint(); drawParts(); drawAnger(); drawBubble(); drawTimer(); drawMeters();
   if (DBG.on) dbgDraw();
   requestAnimationFrame(frame);
 }
@@ -434,63 +525,62 @@ function frame(now){
 // ---------- 判定と結果 ----------
 function fire(){
   phase = 'firing'; ptr.id = null; if (AC){ setP(rustleG.gain, 0); setP(purrG.gain, 0); }
-  const fin = finalForm(S); resultInfo = { ...fin, sim:S };
-  setStatus('判定中…'); wipe(true);
+  resultInfo = { ...finalForm(S), sim:S }; wipe(true);
   setTimeout(() => { showResult(); wipe(false); }, 420);
 }
 function wipe(on){ $('wipe').classList.toggle('on', on); }
 const wipeEl = $('wipe'); for (let i = 0; i < 8; i++){ const s = document.createElement('i'); s.style.transitionDelay = (i * .025) + 's'; wipeEl.appendChild(s); }
-
-function topRegion(s){ let b = null; for (const [k, v] of Object.entries(s.regionDist)) if (!b || v > s.regionDist[b]) b = k; return s.regionDist[b] > 0 ? REGION_LABEL[b] : 'なし'; }
+function topRegion(s){ let b = null; for (const [k, v] of Object.entries(s.regionDist)) if (!b || v > s.regionDist[b]) b = k; return s.regionDist[b] > 0 ? REGION_LABEL[b] : '―'; }
 let revealT = 0, cardPNG = null, skipReveal = false;
 function showResult(){
-  phase = 'result'; revealT = 0; cardPNG = null; skipReveal = false; $('result').classList.add('on'); $('rs').style.display = 'none'; setStatus('');
-  const fm = FORM(resultInfo.form); zRecord(resultInfo.form, S.coat);
-  setTint(fm.line); $('form').textContent = fm.name;
+  phase = 'result'; revealT = 0; cardPNG = null; skipReveal = false; $('result').classList.add('on'); $('rs').style.display = 'none';
+  const fm = FORM(resultInfo.form); zRecord(resultInfo.form, S.coat); setTint(fm.line); setTag(fm.id);
   const t0r = performance.now(); let ticked = 0;
   const step = () => {
     const t = Math.max((performance.now() - t0r) / 1000, skipReveal ? .9 : 0); revealT = t;
     if (t < .9 && Math.floor(t * 10) > ticked){ ticked = Math.floor(t * 10); sfx.tick(); }
     drawCard(t);
     if (t >= .9 && !resultInfo.revealed){ resultInfo.revealed = true; sfx.reveal(); }
-    if (t < 1.6 && phase === 'result') requestAnimationFrame(step); else if (phase === 'result'){ cardPNG = $('card').toDataURL('image/png'); }
+    if (t < 1.6 && phase === 'result') requestAnimationFrame(step); else if (phase === 'result') cardPNG = $('card').toDataURL('image/png');
   };
   document.fonts.load('40px DotGothic16').finally(() => requestAnimationFrame(step));
 }
 function drawCard(t){
-  const c = $('card'), x = c.getContext('2d'), CW = 1080, CH = 1440; const s = resultInfo.sim, fm = FORM(resultInfo.form), ln = LINE(fm.line);
-  x.imageSmoothingEnabled = false; x.fillStyle = style === 'std' ? ln.tint : STYLE_BG[style]; x.fillRect(0, 0, CW, CH);
-  const dark = style === 'fc' || style === 'crt' || style === 'neon'; const ink = dark ? '#f2ede6' : '#2a2523', sub = dark ? '#b8aea6' : '#7a6f68';
-  x.strokeStyle = ink; x.lineWidth = 12; x.strokeRect(24, 24, CW - 48, CH - 48);
-  x.fillStyle = ink; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
-  x.font = '44px DotGothic16'; x.fillStyle = sub; x.fillText(`10秒なでたら、うちの${COATS[s.coat].name}は…`, CW / 2, 120);
-  // 絵（48×16=768px）
-  const sc = 16, f = Math.floor(t * 8) % 8, revealed = t >= .9;
-  const g = render(fm.id, 48, f, s.coat); const img = drawStyled(g, sc, style, { noBg:true, silhouette: revealed ? null : ink });
-  const bounce = revealed ? Math.max(0, 1 - (t - .9) * 4) : 0;
-  x.drawImage(img, (CW - 768) / 2, 150 - bounce * 30);
-  // 名前
-  x.fillStyle = ink; x.font = '92px DotGothic16'; x.fillText(revealed ? fm.name : '？？？', CW / 2, 1010);
-  x.font = '38px DotGothic16'; x.fillStyle = sub;
-  const stageName = ['', '1段階', '2段階', '3段階', '最終', 'ミーム'][fm.stage] || '';
-  x.fillText(revealed ? `${ln.name}　${stageName}` : '判定中…', CW / 2, 1068);
+  const c = $('card'), x = c.getContext('2d'), CW = 1080, CH = 1440; const s = resultInfo.sim, fm = FORM(resultInfo.form), ln = LINE(fm.line), lc = LINE_COLOR[fm.line];
+  x.imageSmoothingEnabled = false;
+  const dark = style === 'fc' || style === 'crt' || style === 'neon', tint = style === 'std' ? ln.tint : STYLE_BG[style], ink = dark ? '#f2ede6' : '#2a2523', sub = dark ? '#b8aea6' : '#8a7f77';
+  x.fillStyle = tint; x.fillRect(0, 0, CW, CH);
+  if (!dark){ const img = new Image(); img.src = pawBg(tint).slice(4, -1); if (img.complete){ x.save(); x.scale(4, 4); x.fillStyle = x.createPattern(img, 'repeat'); x.fillRect(0, 0, CW / 4, CH / 4); x.restore(); } }
+  // 上：毛色
+  drawIcon(x, 'paw', CW / 2 - 150, 64, 5, COATS[s.coat].map.F === '#fbf8f3' ? '#d8cfc3' : COATS[s.coat].map.F);
+  x.fillStyle = sub; x.font = '48px DotGothic16'; x.textAlign = 'left'; x.textBaseline = 'middle'; x.fillText(`10秒後の${COATS[s.coat].name}`, CW / 2 - 76, 96);
+  // 猫と影
+  const revealed = t >= .9, f = t >= 1.6 ? 0 : Math.floor(t * 8) % 8, bounce = revealed ? Math.max(0, 1 - (t - .9) * 4) : 0;
+  x.fillStyle = 'rgba(42,37,35,.10)'; for (let i = -14; i < 14; i++){ const w = Math.sqrt(1 - (i / 14) ** 2); x.fillRect(CW / 2 + i * 16, 150 + 45 * 16, 16, Math.max(16, Math.round(w * 2) * 16)); }
+  x.drawImage(drawStyled(render(fm.id, 48, f, s.coat), 16, style, { noBg:true, silhouette: revealed ? null : ink }), (CW - 768) / 2, 150 - bounce * 40);
+  // 名札
+  const name = revealed ? fm.name : '？？？'; x.font = '88px DotGothic16'; const tw = Math.max(420, x.measureText(name).width + 120), tx = (CW - tw) / 2, ty = 940;
+  x.fillStyle = 'rgba(42,37,35,.18)'; x.fillRect(tx, ty + 16, tw, 180);
+  x.fillStyle = '#2a2523'; x.fillRect(tx - 9, ty + 9, tw + 18, 162); x.fillRect(tx, ty, tw, 180);
+  x.fillStyle = revealed ? lc : '#8a7f77'; x.fillRect(tx, ty + 9, tw, 162);
+  x.fillStyle = '#ffffff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(name, CW / 2, ty + (revealed && fm.stage ? 62 : 90));
+  if (revealed){ if (fm.stage >= 1 && fm.stage <= 4) for (let i = 0; i < 4; i++) drawIcon(x, 'star', CW / 2 - 2 * 66 + i * 66 + 3, ty + 114, 5, i < fm.stage ? '#ffffff' : 'rgba(255,255,255,.35)');
+    else if (fm.stage === 5 || fm.line === 'secret') drawIcon(x, fm.stage === 5 ? 'meme' : 'secret', CW / 2 - 30, ty + 114, 5, '#ffffff'); }
+  // 記録（アイコン＋値）
   if (revealed){
-    // なでた記録
-    const rows = [['なでた回数', `${s.nade + s.taps}回`], ['なでた距離', `${(s.dist * .0083).toFixed(2)}m`], ['いちばん', `${topRegion(s)}`], ['猫パンチ', `${s.punch}回`]];
-    x.font = '36px DotGothic16';
-    rows.forEach(([k, v], i) => { const cx = 150 + i * 260; x.fillStyle = sub; x.fillText(k, cx, 1150); x.fillStyle = ink; x.font = '48px DotGothic16'; x.fillText(v, cx, 1210); x.font = '36px DotGothic16'; });
-    x.fillStyle = ink; x.font = '36px DotGothic16'; x.fillText(resultInfo.why ? `決め手：${resultInfo.why}` : fm.desc, CW / 2, 1290);
+    const cells = [['paw', `${s.nade + s.taps}`], ['ruler', `${(s.dist * .0083).toFixed(1)}m`], ['pin', topRegion(s)], ['claw', `${s.punch}`]];
+    cells.forEach(([ico, v], i) => { const cx = 175 + i * 243; drawIcon(x, ico, cx - 36, 1186, 6, ink); x.fillStyle = ink; x.font = '54px DotGothic16'; x.fillText(v, cx, 1300); });
   }
-  x.font = '30px DotGothic16'; x.fillStyle = sub; x.textAlign = 'left'; x.fillText('#10秒なですぎ猫', 60, 1380);
-  x.textAlign = 'right'; const d = new Date(); x.fillText(`${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}　ver.${APP_VER}`, CW - 60, 1380);
+  x.font = '30px DotGothic16'; x.fillStyle = sub; x.textAlign = 'left'; x.fillText('#10秒なですぎ猫', 56, 1392);
+  x.textAlign = 'right'; const d = new Date(); x.fillText(`${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`, CW - 56, 1392);
 }
-function shareText(){ const fm = FORM(resultInfo.form); return `うちの${COATS[resultInfo.sim.coat].name}、10秒なでたら「${fm.name}」になりました（なで${resultInfo.sim.nade + resultInfo.sim.taps}回）\n\n#10秒なですぎ猫`; }
+function shareText(){ const fm = FORM(resultInfo.form); return `うちの${COATS[resultInfo.sim.coat].name}、10秒なでたら「${fm.name}」になりました\n\n#10秒なですぎ猫`; }
 async function pngFile(){ const url = cardPNG || $('card').toDataURL('image/png'); const b = await (await fetch(url)).blob(); return new File([b], 'nadesugi_neko.png', { type:'image/png' }); }
 const coarse = matchMedia('(pointer:coarse)').matches;
 async function shareX(){
   sfx.click();
   try { const file = await pngFile(); if (coarse && navigator.canShare && navigator.canShare({ files:[file] })){ await navigator.share({ files:[file], text:shareText() }); return; } } catch(e){ if (e && e.name === 'AbortError') return; }
-  try { const file = await pngFile(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': file })]); toast('画像をコピーしました。ポストに貼り付けてください'); } catch(e){}
+  try { const file = await pngFile(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': file })]); toast('画像をコピーしました'); } catch(e){}
   window.open('https://x.com/intent/tweet?text=' + encodeURIComponent(shareText()), '_blank', 'noopener');
 }
 async function saveImg(){
@@ -498,36 +588,39 @@ async function saveImg(){
   try { if (coarse && navigator.canShare && navigator.canShare({ files:[file] })){ await navigator.share({ files:[file] }); return; } } catch(e){ if (e && e.name === 'AbortError') return; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
-function retry(){
-  sfx.click(); wipe(true);
-  setTimeout(() => { $('result').classList.remove('on'); newRound(); wipe(false); }, 200);
-}
-let toastT = 0; function toast(t){ const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => el.style.display = 'none', 2600); }
+function retry(){ sfx.click(); wipe(true); setTimeout(() => { $('result').classList.remove('on'); newRound(); wipe(false); }, 200); }
+let toastT = 0; function toast(t){ const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => el.style.display = 'none', 2200); }
 
 // ---------- 図鑑 ----------
 function zData(){ return LS.get('neko_zukan_v1', {}); }
 function zRecord(id, coat){ const z = zData(); if (!z[id]){ z[id] = { coat, d:Date.now() }; LS.set('neko_zukan_v1', z); LS.set('neko_zukan_new', true); markNew(); } }
-function markNew(){ const n = LS.get('neko_zukan_new', false); $('zbtn').classList.toggle('dot-new', n); $('zbtn2').classList.toggle('dot-new', n); }
+function markNew(){ const n = LS.get('neko_zukan_new', false); $('zbtn').classList.toggle('new', n); $('zbtn2').classList.toggle('new', n); }
+const Z_ICON = { start:'paw', melt:'melt', long:'long', yokai:'yokai', elec:'elec', angry:'angry', idle:'idle', secret:'secret', meme:'meme' };
 function zOpen(){
   sfx.click(); LS.set('neko_zukan_new', false); markNew(); const z = zData(); const grid = $('zgrid'); grid.innerHTML = '';
-  const order = LINES.flatMap(l => FORMS.filter(f => f.line === l.key));
-  let got = 0;
-  for (const f of order){ const has = !!z[f.id]; if (has) got++;
-    const fig = document.createElement('figure'); fig.className = has ? '' : 'no';
-    const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
-    x.drawImage(drawStyled(render(f.id, 48, 0, has ? z[f.id].coat : 'tora'), 2, 'std', { noBg:true, silhouette: has ? null : '#cfc5b8' }), 0, 0);
-    fig.appendChild(c); const cap = document.createElement('figcaption'); cap.textContent = has ? f.name : (LINE(f.line).how || '？'); fig.appendChild(cap); grid.appendChild(fig); }
-  $('zsum').textContent = `見つけた形態 ${got} / ${order.length}`;
+  let got = 0, all = 0;
+  for (const l of LINES){ const fs = FORMS.filter(f => f.line === l.key); if (!fs.length) continue;
+    const row = document.createElement('div'); row.className = 'zrow'; const ic = document.createElement('img'); ic.src = iconURL(Z_ICON[l.key], LINE_COLOR[l.key], 2); row.appendChild(ic);
+    const g = document.createElement('div'); g.className = 'zg'; row.appendChild(g);
+    for (const f of fs){ all++; const has = !!z[f.id]; if (has) got++;
+      const fig = document.createElement('figure'); const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+      x.drawImage(drawStyled(render(f.id, 48, 0, has ? z[f.id].coat : 'tora'), 2, 'std', { noBg:true, silhouette: has ? null : '#d8cfc3' }), 0, 0);
+      fig.appendChild(c); if (has){ const cap = document.createElement('figcaption'); cap.textContent = f.name; fig.appendChild(cap); } g.appendChild(fig); }
+    grid.appendChild(row); }
+  $('zsum').textContent = `${got} / ${all}`;
   $('zukan').classList.add('on');
 }
 
-// ---------- 遊び方 ----------
+// ---------- 遊び方（絵で見せる） ----------
 function howBuild(){
-  const items = [['normal', '猫をなでる', 'ドラッグでなでなで。触った瞬間に10秒スタート'], ['liquid', 'なで方で進化が変わる', 'あご・耳・胴・お腹、速さ、毛並みの向き、長さ'], ['ikamimi', 'イライラさせすぎると猫パンチ', 'お腹・逆なで・速すぎに注意'], ['spin', '10秒後に判定', '特別ななで方をすると、ふしぎな姿に']];
   const el = $('howList'); el.innerHTML = '';
-  for (const [id, a, b] of items){ const d = document.createElement('div'); const c = document.createElement('canvas'); c.width = c.height = 96; c.style.width = c.style.height = '64px';
-    const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(drawStyled(render(id, 48, 0, 'tora'), 2, 'std', { noBg:true }), 0, 0);
-    d.appendChild(c); const t = document.createElement('span'); t.innerHTML = `${a}<small>${b}</small>`; d.appendChild(t); el.appendChild(d); }
+  const add = (draw, w, h, cap) => { const d = document.createElement('div'); const c = document.createElement('canvas'); c.width = w; c.height = h; c.style.width = w / 2 + 'px'; c.style.height = h / 2 + 'px';
+    const x = c.getContext('2d'); x.imageSmoothingEnabled = false; draw(x); d.appendChild(c); const s = document.createElement('div'); s.textContent = cap; d.appendChild(s); el.appendChild(d); };
+  add(x => { x.drawImage(drawStyled(render('normal', 48, 0, 'tora'), 4, 'std', { noBg:true }), 0, 0); const old = ctx; for (const r of [26, 40]){ x.fillStyle = '#f08a5d'; const n = 28; for (let i = 0; i < n; i++){ const a = i / n * 6.283; x.fillRect(Math.round((96 + Math.cos(a) * r) / 4) * 4, Math.round((96 + Math.sin(a) * r) / 4) * 4, 4, 4); } }
+    x.drawImage(drawStyled(render('liquid', 48, 0, 'tora'), 4, 'std', { noBg:true }), 260, 0); drawIcon(x, 'long', 205, 70, 4, '#2a2523'); }, 452, 192, 'なでる');
+  add(x => { ['melt', 'long', 'yokai', 'elec', 'angry', 'idle'].forEach((k, i) => drawIcon(x, k, i * 64, 0, 4, LINE_COLOR[k])); }, 376, 48, 'なで方で変わる');
+  add(x => { for (let i = 0; i < 10; i++) drawIcon(x, 'paw', i * 40, 0, 3, i < 7 ? '#f08a5d' : 'rgba(42,37,35,.15)'); }, 396, 36, '10秒');
+  add(x => { drawIcon(x, 'angry', 0, 0, 4, '#e5484d'); drawIcon(x, 'claw', 64, 0, 4, '#2a2523'); }, 112, 48, 'なですぎ注意');
 }
 function hOpen(){ sfx.click(); $('howto').classList.add('on'); }
 $('howto').addEventListener('pointerdown', e => { e.stopPropagation(); $('howto').classList.remove('on'); LS.set('neko_howto_v1', 1); });
@@ -538,7 +631,7 @@ $('hbtn').onclick = hOpen;
 $('zbtn').onclick = zOpen; $('zbtn2').onclick = zOpen; $('zclose').onclick = () => { sfx.click(); $('zukan').classList.remove('on'); };
 $('zukan').addEventListener('click', e => { if (e.target.id === 'zukan') $('zukan').classList.remove('on'); });
 $('sbtn').onclick = () => { audioInit(); setSound(!sound); sfx.click(); };
-$('stbtn').onclick = () => { const i = STYLES.findIndex(s => s.id === style); style = STYLES[(i + 1) % STYLES.length].id; LS.set('neko_style', style); setTint(S.line); toast(`描き方：${STYLES.find(s => s.id === style).name}`); sfx.click(); };
+$('stbtn').onclick = () => { const i = STYLES.findIndex(s => s.id === style); style = STYLES[(i + 1) % STYLES.length].id; LS.set('neko_style', style); setTint(S.line); toast(STYLES.find(s => s.id === style).name); sfx.click(); };
 $('rs').onclick = () => retry();
 $('retry').onclick = retry; $('xbtn').onclick = shareX; $('save').onclick = saveImg;
 $('card').addEventListener('pointerdown', () => { if (revealT < .9) skipReveal = true; });
@@ -549,17 +642,18 @@ if (/[?&]debug/.test(location.search) && (location.protocol === 'file:' || /^(lo
 function dbgDraw(){
   const s = S; const el = $('dbg'); el.style.display = 'block';
   el.textContent = Object.entries(s.score).map(([k, v]) => `${k.padEnd(6)} ${v.toFixed(0).padStart(4)}`).join('\n') +
-    `\npurr ${s.purr.toFixed(0)} irr ${s.irr.toFixed(0)} punch ${s.punch}\ndist ${s.dist.toFixed(0)} strokes ${s.strokes} taps ${s.taps}\nstill ${s.still.toFixed(1)} spin ${(s.spin / 6.283).toFixed(1)} maxV ${s.maxV.toFixed(0)}\n→ ${s.form} / final ${finalForm(s).form}`;
+    `\npurr ${s.purr.toFixed(0)} irr ${s.irr.toFixed(0)} punch ${s.punch}\ndist ${s.dist.toFixed(0)} nade ${s.nade} taps ${s.taps}\nstill ${s.still.toFixed(1)} spin ${(s.spin / 6.283).toFixed(1)} maxV ${s.maxV.toFixed(0)}\n→ ${s.form} / final ${finalForm(s).form}`;
 }
 
 // ---------- はじめ ----------
-setSound(sound); howBuild(); newRound(); resize(); markNew();
+paintIcons(); setSound(sound); howBuild(); newRound(); markNew();
+document.fonts.load('20px DotGothic16').finally(resize); resize();
 if (!LS.get('neko_howto_v1', 0)) $('howto').classList.add('on');
 if (DBG.on){ const q = new URLSearchParams(location.search);
   if (q.get('nohow') !== null) $('howto').classList.remove('on');
-  if (q.get('result')){ $('howto').classList.remove('on'); start(); S.dist = 412; S.strokes = 38; S.nade = 52; S.taps = 3; S.regionDist.chin = 300; S.t = P.time;
+  if (q.get('result')){ $('howto').classList.remove('on'); start(); S.dist = 412; S.nade = 52; S.taps = 3; S.regionDist.chin = 300; S.t = P.time;
     setTimeout(() => { phase = 'firing'; resultInfo = { form:q.get('result'), why:null, sim:S }; showResult(); }, 300); }
-  if (q.get('play')){ $('howto').classList.remove('on'); start(); const f = q.get('play'); S.form = f; prevForm = f; S.line = FORM(f).line; $('form').textContent = FORM(f).name; setTint(S.line); S.t = 4.2; S.purr = 72; S.irr = 30; S.score.melt = 230; S.score.yokai = 60; } }
+  if (q.get('play')){ $('howto').classList.remove('on'); start(); const f = q.get('play'); S.form = f; prevForm = f; S.line = FORM(f).line; setTag(f); setTint(S.line); S.t = 4.2; S.purr = 72; S.irr = 75; S.score.melt = 230; S.score.yokai = 60; } }
 requestAnimationFrame(frame);
 </script>
 </body>
