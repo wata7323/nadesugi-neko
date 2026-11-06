@@ -43,6 +43,9 @@
   #ctrl{ position:absolute; left:0; right:0; bottom:0; height:calc(64px + env(safe-area-inset-bottom)); pointer-events:none; }
   /* 重ねる画面 */
   .ov{ position:fixed; inset:0; display:none; background:rgba(42,37,35,.6); z-index:10; padding:calc(18px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom)); }
+  #howto, #zukan{ z-index:12; }
+  body.res #stage{ visibility:hidden; }
+  #result{ background:transparent; }
   .ov.on{ display:flex; flex-direction:column; align-items:center; justify-content:center; }
   .sheet{ width:min(420px, 100%); max-height:100%; overflow:auto; padding:18px 16px; }
   .how{ display:grid; gap:18px; justify-items:center; text-align:center; font-size:18px; }
@@ -533,7 +536,7 @@ const wipeEl = $('wipe'); for (let i = 0; i < 8; i++){ const s = document.create
 function topRegion(s){ let b = null; for (const [k, v] of Object.entries(s.regionDist)) if (!b || v > s.regionDist[b]) b = k; return s.regionDist[b] > 0 ? REGION_LABEL[b] : '―'; }
 let revealT = 0, cardPNG = null, skipReveal = false;
 function showResult(){
-  phase = 'result'; revealT = 0; cardPNG = null; skipReveal = false; $('result').classList.add('on'); $('rs').style.display = 'none';
+  phase = 'result'; revealT = 0; cardPNG = null; skipReveal = false; $('result').classList.add('on'); document.body.classList.add('res'); $('rs').style.display = 'none';
   const fm = FORM(resultInfo.form); zRecord(resultInfo.form, S.coat); setTint(fm.line); setTag(fm.id);
   const t0r = performance.now(); let ticked = 0;
   const step = () => {
@@ -551,9 +554,12 @@ function drawCard(t){
   const dark = style === 'fc' || style === 'crt' || style === 'neon', tint = style === 'std' ? ln.tint : STYLE_BG[style], ink = dark ? '#f2ede6' : '#2a2523', sub = dark ? '#b8aea6' : '#8a7f77';
   x.fillStyle = tint; x.fillRect(0, 0, CW, CH);
   if (!dark){ const img = new Image(); img.src = pawBg(tint).slice(4, -1); if (img.complete){ x.save(); x.scale(4, 4); x.fillStyle = x.createPattern(img, 'repeat'); x.fillRect(0, 0, CW / 4, CH / 4); x.restore(); } }
+  // 猫の後ろの丸い台（白い猫でも背景から浮くように）
+  x.fillStyle = dark ? 'rgba(255,255,255,.08)' : 'rgba(42,37,35,.08)';
+  for (let j = -24; j < 24; j++){ const w = Math.round(Math.sqrt(1 - ((j + .5) / 24) ** 2) * 24); x.fillRect(CW / 2 - w * 16, 150 + 384 + j * 16, w * 32, 16); }
   // 上：毛色
   drawIcon(x, 'paw', CW / 2 - 150, 64, 5, COATS[s.coat].map.F === '#fbf8f3' ? '#d8cfc3' : COATS[s.coat].map.F);
-  x.fillStyle = sub; x.font = '48px DotGothic16'; x.textAlign = 'left'; x.textBaseline = 'middle'; x.fillText(`10秒後の${COATS[s.coat].name}`, CW / 2 - 76, 96);
+  x.fillStyle = ink; x.font = '48px DotGothic16'; x.textAlign = 'left'; x.textBaseline = 'middle'; x.fillText(`10秒後の${COATS[s.coat].name}`, CW / 2 - 76, 96);
   // 猫と影
   const revealed = t >= .9, f = t >= 1.6 ? 0 : Math.floor(t * 8) % 8, bounce = revealed ? Math.max(0, 1 - (t - .9) * 4) : 0;
   x.fillStyle = 'rgba(42,37,35,.10)'; for (let i = -14; i < 14; i++){ const w = Math.sqrt(1 - (i / 14) ** 2); x.fillRect(CW / 2 + i * 16, 150 + 45 * 16, 16, Math.max(16, Math.round(w * 2) * 16)); }
@@ -568,11 +574,12 @@ function drawCard(t){
     else if (fm.stage === 5 || fm.line === 'secret') drawIcon(x, fm.stage === 5 ? 'meme' : 'secret', CW / 2 - 30, ty + 114, 5, '#ffffff'); }
   // 記録（アイコン＋値）
   if (revealed){
+    x.fillStyle = '#2a2523'; x.fillRect(56, 1160, CW - 112, 190); x.fillStyle = dark ? '#1c1816' : '#fffdf8'; x.fillRect(65, 1169, CW - 130, 172);
     const cells = [['paw', `${s.nade + s.taps}`], ['ruler', `${(s.dist * .0083).toFixed(1)}m`], ['pin', topRegion(s)], ['claw', `${s.punch}`]];
-    cells.forEach(([ico, v], i) => { const cx = 175 + i * 243; drawIcon(x, ico, cx - 36, 1186, 6, ink); x.fillStyle = ink; x.font = '54px DotGothic16'; x.fillText(v, cx, 1300); });
+    cells.forEach(([ico, v], i) => { const cx = 175 + i * 243; drawIcon(x, ico, cx - 36, 1186, 6, lc); x.fillStyle = ink; x.font = '54px DotGothic16'; x.fillText(v, cx, 1296); });
   }
-  x.font = '30px DotGothic16'; x.fillStyle = sub; x.textAlign = 'left'; x.fillText('#10秒なですぎ猫', 56, 1392);
-  x.textAlign = 'right'; const d = new Date(); x.fillText(`${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`, CW - 56, 1392);
+  x.font = '30px DotGothic16'; x.fillStyle = sub; x.textAlign = 'left'; x.fillText('#10秒なですぎ猫', 56, 1400);
+  x.textAlign = 'right'; const d = new Date(); x.fillText(`${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`, CW - 56, 1400);
 }
 function shareText(){ const fm = FORM(resultInfo.form); return `うちの${COATS[resultInfo.sim.coat].name}、10秒なでたら「${fm.name}」になりました\n\n#10秒なですぎ猫`; }
 async function pngFile(){ const url = cardPNG || $('card').toDataURL('image/png'); const b = await (await fetch(url)).blob(); return new File([b], 'nadesugi_neko.png', { type:'image/png' }); }
@@ -588,7 +595,7 @@ async function saveImg(){
   try { if (coarse && navigator.canShare && navigator.canShare({ files:[file] })){ await navigator.share({ files:[file] }); return; } } catch(e){ if (e && e.name === 'AbortError') return; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
-function retry(){ sfx.click(); wipe(true); setTimeout(() => { $('result').classList.remove('on'); newRound(); wipe(false); }, 200); }
+function retry(){ sfx.click(); wipe(true); setTimeout(() => { $('result').classList.remove('on'); document.body.classList.remove('res'); newRound(); wipe(false); }, 200); }
 let toastT = 0; function toast(t){ const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => el.style.display = 'none', 2200); }
 
 // ---------- 図鑑 ----------
