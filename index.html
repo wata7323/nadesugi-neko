@@ -523,7 +523,7 @@ function onSpot(x, y){
   combo += 3; comboT = 1.1; comboPop = 1; S.purr = Math.min(100, S.purr + 12); feverN++; spot.pop = .3;
   sfx.spot(feverN); for (let i = 0; i < 12; i++) spawn('star', x, y); spawn('ring', x, y);
   if (navigator.vibrate && sound) navigator.vibrate(25);
-  if (feverN >= P.spotNeed){ feverN = 0; S.fever = P.feverTime; sfx.fever(); flashAll = .35; shake = Math.max(shake, .5); bubble = 1; bubbleTxt = ['フィーバー！', '#e0a800']; }
+  if (feverN >= P.spotNeed){ feverN = 0; S.fever = P.feverTime; sfx.fever(); flashAll = .2; shake = Math.max(shake, .5); bubble = 1; bubbleTxt = ['フィーバー！', '#e0a800']; }
 }
 function onNade(x, y){
   combo++; comboT = 1.1; comboPop = 1; squash = 1; sfx.nade(combo);
@@ -531,7 +531,7 @@ function onNade(x, y){
   if (combo % 10 === 0){ sfx.combo(); for (let i = 0; i < 10; i++) spawn('star', x, y); }
 }
 function onEvo(id){
-  const fm = FORM(id); evoFlash = .5; flashAll = .5; hitstop = .14 + .03 * fm.stage; shake = Math.max(shake, .9);
+  const fm = FORM(id); evoFlash = .35; flashAll = .25; hitstop = .14 + .03 * fm.stage; shake = Math.max(shake, .9);
   sfx.evoBig(fm.stage); setTag(id, true); setTint(S.line); for (let i = 0; i < 12; i++) spawn('puff'); for (let i = 0; i < 18; i++) spawn('burst');
   if (navigator.vibrate && sound) navigator.vibrate([30, 40, 90]);
   if (!zData()[id]){ zRecord(id, S.coat); newThisRound.push(id); sfx.newform(); const n = $('newb'); n.classList.remove('on'); void n.offsetWidth; n.classList.add('on'); }
@@ -655,10 +655,10 @@ function frame(now){
   drawFever();
   const sq = squash * .05, grow = hitstop > 0 ? .06 : 0, cw = Math.round(view.size * DPR * (1 + sq + grow)), chh = Math.round(view.size * DPR * (1 - sq + grow)), cX = X - Math.round((cw - view.size * DPR) / 2), cY = Y + Math.round(view.size * DPR) - chh;
   ctx.drawImage(sprite(id, f, S.coat, view.s), cX, cY, cw, chh);
-  if (evoFlash > 0){ ctx.globalAlpha = Math.min(1, evoFlash / .35) * .85; ctx.drawImage(sprite(id, f, S.coat, view.s, { silhouette:'#ffffff' }), cX, cY, cw, chh); ctx.globalAlpha = 1; }
+  if (evoFlash > 0){ ctx.globalAlpha = Math.min(1, evoFlash / .35) * .6; ctx.drawImage(sprite(id, f, S.coat, view.s, { silhouette:'#ffffff' }), cX, cY, cw, chh); ctx.globalAlpha = 1; }
   if (S.lock > 0){ ctx.globalAlpha = .18; ctx.fillStyle = '#e5484d'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalAlpha = 1; }
   drawHint(); drawSpot(); drawParts(); drawAnger(); drawBubble(); drawCombo(); drawTimer(); drawMeters(); drawAimHint();
-  if (flashAll > 0){ ctx.globalAlpha = Math.min(.85, flashAll * 1.8); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalAlpha = 1; }
+  if (flashAll > 0){ ctx.globalAlpha = Math.min(.3, flashAll * 1.2); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalAlpha = 1; }
   if (DBG.on) dbgDraw();
   requestAnimationFrame(frame);
 }
