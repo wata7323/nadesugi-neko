@@ -106,7 +106,7 @@
 
 <div class="ov" id="howto"><div class="sheet pxbox">
   <div class="how" id="howList"></div>
-  <div class="ver">わた｜ver. 0.4.3　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
+  <div class="ver">わた｜ver. 0.4.4　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
 </div></div>
 
 <div class="ov" id="zukan"><div class="sheet pxbox">
@@ -134,7 +134,7 @@
 <script>
 'use strict';
 const { FORMS, LINES, COATS, STYLES, STYLE_BG, render, drawStyled } = CatSprites;
-const APP_VER = '0.4.3';
+const APP_VER = '0.4.4';
 
 /*SIM-START*/
 // ---------- 調整用の数値（ここだけ触れば手ざわりが変わる） ----------
@@ -170,7 +170,7 @@ const P = {
   punchLoss: .3, punchPurr: .5,
   // キラキラ：コンボ+3、ゴロゴロ+12、イライラを spotCalm へらす
   spotCombo: 3, spotPurr: 12, spotCalm: 35,
-  memeNakiPurr: 55, memeNakiIdle: 3.5, memeHappyRegions: 4, memeJouhinDist: 60, memeJouhinMaxV: 60, memeJouhinHead: .8,
+  memeNakiPurr: 55, memeNakiIdle: 3.5, memeHappyRegions: 4, memeJouhinDist: 80, memeJouhinMaxV: 28, memeJouhinHead: .9,   // 上品：頭だけを、ずっと「ゆっくり」の速さで（ふつうの速さが一度でも出たら不成立）
 };
 const SYS = ['melt', 'long', 'yokai', 'elec', 'angry'];
 const LINE_FORMS = {
@@ -188,7 +188,7 @@ function region(u, v){
 }
 function newSim(coat){
   return { t:0, started:false, over:false, coat, score:{ melt:0, long:0, yokai:0, elec:0, angry:0, idle:0 },
-    purr:0, purrPeak:0, irr:0, irrPeak:0, punch:0, lock:0, dist:0, strokes:0, nade:0, segLen:0, taps:0, tapRegions:{}, fever:0, still:0, spin:0, maxV:0,
+    purr:0, purrPeak:0, irr:0, irrPeak:0, punch:0, lock:0, dist:0, strokes:0, nade:0, segLen:0, taps:0, tapRegions:{}, fever:0, still:0, spin:0, spinRun:0, maxV:0,
     regionDist:{ ear:0, head:0, chin:0, body:0, belly:0 }, bellyRun:0, combo:0, comboT:0, comboPeak:0, sameReg:null, sameRun:0, lastTouch:0, down:false, stroke:null, prevDir:null, prevAng:null, line:'start', stage:0 };
 }
 // 指の移動1回ぶん（u,v は48マス座標、dt 秒）
@@ -199,7 +199,8 @@ function simMove(s, u0, v0, u1, v1, dt){
   if (s.stroke){ s.stroke.len += d; }
   // 回転（猫の中心まわりの角度）
   const ang = Math.atan2(v1 - 30, u1 - 24), rr = Math.hypot(u1 - 24, v1 - 30);
-  if (s.prevAng !== null && rr > 8){ let da = ang - s.prevAng; if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI; s.spin += da; }
+  // 回る猫は「指を離さずに続けて」回した量で数える（一方向のなでを繰り返しても回転にならない）
+  if (s.prevAng !== null && rr > 8){ let da = ang - s.prevAng; if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI; s.spinRun += da; if (Math.abs(s.spinRun) > Math.abs(s.spin)) s.spin = s.spinRun; }
   s.prevAng = ang;
   s.stillRun = v < 2 ? (s.stillRun || 0) + dt : 0; if (s.stillRun > .4) s.still += dt;
   if (d < .05) return;
@@ -248,7 +249,7 @@ function simSpotMiss(s){ s.spotRun = 0; }
 // のびる系：ひと方向に長く引いた分＝引きはじめと引き終わりの直線距離（折り返すか指を離したときに数える。小刻みな往復や円は数えない）
 function longBonus(s, u, v){ const c = s.seg0 ? Math.hypot(u - s.seg0[0], v - s.seg0[1]) : 0;
   if (c > P.longStrokeMin && s.lock <= 0) s.score.long += (c - P.longStrokeMin * .8) * P.longStroke * (1 + s.purr / 100 * P.purrBoost) * comboMul(s); }
-function simDown(s){ if (s.over) return; s.down = true; s.seg0 = null; s.stroke = { len:0, t:s.t }; s.prevDir = null; s.prevAng = null; s.lastTouch = s.t; }
+function simDown(s){ if (s.over) return; s.down = true; s.seg0 = null; s.spinRun = 0; s.stroke = { len:0, t:s.t }; s.prevDir = null; s.prevAng = null; s.lastTouch = s.t; }
 function simUp(s, u, v){
   if (!s.stroke) return; const st = s.stroke; s.stroke = null; s.down = false; s.lastTouch = s.t;
   if (s.over) return;
@@ -280,14 +281,14 @@ function finalForm(s){
   if (mn >= P.gainen) return { form:'gainen', why:'全部の系統をまんべんなく、たっぷり' };
   if (mn >= P.uchu) return { form:'uchu', why:'全部の系統をまんべんなく' };
   if (s.still >= P.memeStill) return { form:'magao', why:'じっと押さえ続けた' };
-  if (Math.abs(s.spin) >= P.memeSpinTurns * 2 * Math.PI) return { form:'spin', why:'ぐるぐる円を描いた' };
+  if (Math.abs(s.spin) >= P.memeSpinTurns * 2 * Math.PI) return { form:'spin', why:'指を離さず、ぐるぐる円を描いた' };
   if (allTap) return { form:'yoshi', why:'耳・頭・あご・胴・お腹を全部タップ' };
   if (s.punch >= P.memePunch) return { form:'banana', why:`猫パンチを${s.punch}回くらった` };
   if (s.taps >= P.memeTaps) return { form:'pop', why:'ポンポン連打した' };
   if (s.purrPeak >= P.memeNakiPurr && idleEnd >= P.memeNakiIdle) return { form:'naki', why:'気持ちよくさせて、急にやめた' };
   const many = Object.values(s.regionDist).filter(v => v >= 15).length;
   if (s.purr >= P.memeHappyPurr && s.irrPeak < P.memeHappyIrr && many >= P.memeHappyRegions && liveForm(s).stage <= 1) return { form:'happy', why:'いろんな所を、ちょうどよく' };
-  if (s.dist >= P.memeJouhinDist && s.maxV < P.memeJouhinMaxV && s.regionDist.head >= s.dist * P.memeJouhinHead) return { form:'jouhin', why:'頭だけを、ゆっくりやさしく' };
+  if (s.dist >= P.memeJouhinDist && s.maxV < P.memeJouhinMaxV && s.regionDist.head >= s.dist * P.memeJouhinHead) return { form:'jouhin', why:'頭だけを、ずっとゆっくりやさしく' };
   const lv = liveForm(s); return { form: lv.form, why:null };
 }
 /*SIM-END*/
