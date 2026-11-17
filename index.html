@@ -106,7 +106,7 @@
 
 <div class="ov" id="howto"><div class="sheet pxbox">
   <div class="how" id="howList"></div>
-  <div class="ver">わた｜ver. 0.4.1　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
+  <div class="ver">わた｜ver. 0.4.2　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
 </div></div>
 
 <div class="ov" id="zukan"><div class="sheet pxbox">
@@ -134,7 +134,7 @@
 <script>
 'use strict';
 const { FORMS, LINES, COATS, STYLES, STYLE_BG, render, drawStyled } = CatSprites;
-const APP_VER = '0.4.1';
+const APP_VER = '0.4.2';
 
 /*SIM-START*/
 // ---------- 調整用の数値（ここだけ触れば手ざわりが変わる） ----------
@@ -439,6 +439,9 @@ const sfx = {
   devo(){ [784, 622, 523, 392].forEach((f, i) => tone(f, .12, 'triangle', .1, -30, i * .07)); },
   comboBreak(){ tone(330, .14, 'triangle', .07, -140); },
   max(){ [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, .08, 'square', .06, 0, i * .04)); },
+  poof(){ if (!AC || !sound) return; const t = AC.currentTime, s = AC.createBufferSource(); s.buffer = noiseBuf; s.playbackRate.value = 2; const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(3000, t + .3);
+    const g = AC.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.7, t + .04); g.gain.exponentialRampToValueAtTime(.001, t + .4); s.connect(f); f.connect(g); g.connect(AC.comp); s.start(t); s.stop(t + .45);
+    tone(300, .3, 'square', .06, 600, .05); },
   finish(){ thump(.5); tone(1568, .05, 'square', .08); tone(784, .3, 'square', .07, 0, .05); },
   aim(){ [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, .13, 'square', .08, 0, .25 + i * .085)); },
 };
@@ -499,7 +502,7 @@ function update(dt){
     const left = P.time - S.t; if (left < 3 && Math.ceil(left) !== lastTick){ lastTick = Math.ceil(left); sfx.tick(); }
     if (S.purr > 50 && S.down && navigator.vibrate && sound && (vibT -= dt) <= 0){ navigator.vibrate(12); vibT = .14; }
     if (S.over) finish();
-  } else if (phase === 'finish'){ if ((finishT -= dt) <= 0) fire(); }
+  } else if (phase === 'finish') finishStep(dt);
   if (AC){ const on = phase === 'play' && S.down && S.lock <= 0; setP(purrG.gain, sound && on ? S.purr / 100 * .5 : 0, .15); setP(purrLfo.frequency, 20 + S.purr * .06); }
   comboPop = Math.max(0, comboPop - dt * 4); squash = squash > 0 ? Math.max(0, squash - dt * 7) : Math.min(0, squash + dt * 7); for (const k in meterPulse) meterPulse[k] = Math.max(0, meterPulse[k] - dt);
   for (const p of parts) if (p.kind === 'fly' && p.life - dt <= 0) meterPulse[p.key] = .3;
@@ -590,6 +593,8 @@ function spawn(kind, x, y){
   if (kind === 'star'){ const a = Math.random() * 6.283, sp = 120 + Math.random() * 140; parts.push({ kind, x, y, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp - 60, g:260, life:.55, max:.55, c:['#ffd84a', '#ffffff', '#f28fa0'][Math.floor(Math.random() * 3)] }); return; }
   if (kind === 'burst'){ const a = Math.random() * 6.283, sp = 240 + Math.random() * 220; x = view.ox + view.size / 2; y = view.oy + view.size / 2;
     parts.push({ kind:'star', x, y, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp - 80, g:340, life:.8, max:.8, c:['#ffd84a', '#ffffff', LINE_COLOR[S.line] || '#f08a5d'][Math.floor(Math.random() * 3)] }); return; }
+  if (kind === 'smoke'){ const a = Math.random() * Math.PI * 2, r = view.size * .3 * Math.sqrt(Math.random()); x = view.ox + view.size / 2 + Math.cos(a) * r; y = view.oy + view.size * .55 + Math.sin(a) * r * .8;
+    parts.push({ kind:'puff', x, y, vx:Math.cos(a) * 50, vy:Math.sin(a) * 30 - 40, g:0, life:.7 + Math.random() * .25, max:.95, sz:2 + Math.random() * 2, c:Math.random() < .6 ? '#ffffff' : '#d8cfc3' }); return; }
   if (kind === 'puff'){ const a = Math.random() * Math.PI * 2, r = view.size * .35; x = view.ox + view.size / 2 + Math.cos(a) * r * .6; y = view.oy + view.size / 2 + Math.sin(a) * r * .6;
     parts.push({ kind, x, y, vx:Math.cos(a) * 120, vy:Math.sin(a) * 120, g:0, life:.5, max:.5, c:'#ffffff' }); return; }
   parts.push({ kind, x, y, vx:(Math.random() - .5) * 60, vy:-60 - Math.random() * 60, g:kind === 'spark' ? 200 : -20, life:.8, max:.8, c: kind === 'heart' ? '#f28fa0' : '#ffd84a' });
@@ -605,8 +610,9 @@ function drawParts(){
       ctx.globalAlpha = 1; const pat = PAT.heart, X = Math.round(fx * DPR - 7 * b / 2), Y = Math.round(fy * DPR - 3 * b);
       ctx.fillStyle = p.key === 'purr' ? '#f28fa0' : LINE_COLOR[p.key]; pat.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') ctx.fillRect(X + i * b, Y + j * b, b, b); })); continue; }
     if (p.kind === 'ring'){ pxRing(p.x * DPR, p.y * DPR, (1 - p.life / p.max) * 26 * DPR + 6, b, '#ffffff'); ctx.globalAlpha = 1; continue; }
-    const pat = PAT[p.kind]; const w = pat[0].length, X = Math.round(p.x * DPR - w * b / 2), Y = Math.round(p.y * DPR - pat.length * b / 2);
-    ctx.fillStyle = p.c; pat.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') ctx.fillRect(X + i * b, Y + j * b, b, b); }));
+    const bb = p.sz ? Math.round(b * p.sz * (1.4 - p.life / p.max * .6)) : b;   // 煙はふくらみながら消える
+    const pat = PAT[p.kind]; const w = pat[0].length, X = Math.round(p.x * DPR - w * bb / 2), Y = Math.round(p.y * DPR - pat.length * bb / 2);
+    ctx.fillStyle = p.c; pat.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') ctx.fillRect(X + i * bb, Y + j * bb, bb, bb); }));
   }
   ctx.globalAlpha = 1;
 }
@@ -701,13 +707,14 @@ function frame(now){
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = false;
   const jit = S.irr > 70 && phase === 'play' ? (Math.floor(animT * 20) % 2 ? 1 : -1) * Math.max(1, view.s / 3 | 0) : 0;
   const sx = (shake > 0 ? Math.round((Math.random() - .5) * shake * 10) * DPR : 0) + jit, sy = shake > 0 ? Math.round((Math.random() - .5) * shake * 10) * DPR : 0;
-  const id = phase === 'ready' ? 'normal' : (S.form || 'normal'), f = Math.floor(animT * 8) % 8;
+  const doron = (phase === 'finish' || phase === 'firing') && finishSwap && finishTo;
+  const id = phase === 'ready' ? 'normal' : doron ? finishTo : (S.form || 'normal'), f = Math.floor(animT * 8) % 8;
   const X = Math.round(view.ox * DPR) + sx, Y = Math.round(view.oy * DPR) + sy;
   // 足元の影
   ctx.fillStyle = 'rgba(42,37,35,.10)'; const sh = view.s; for (let i = -14; i < 14; i++){ const w = Math.sqrt(1 - (i / 14) ** 2); ctx.fillRect(Math.round(view.ox * DPR + view.size * DPR / 2 + i * sh), Math.round(view.oy * DPR + 45 * sh), sh, Math.max(sh, Math.round(w * 2) * sh)); }
   drawFever();
-  const sq = squash * .05, grow = (hitstop > 0 ? .06 : 0) + (phase === 'finish' ? .1 * finishT / FINISH : 0), cw = Math.round(view.size * DPR * (1 + sq + grow)), chh = Math.round(view.size * DPR * (1 - sq + grow)), cX = X - Math.round((cw - view.size * DPR) / 2), cY = Y + Math.round(view.size * DPR) - chh;
-  ctx.drawImage(sprite(id, f, S.coat, view.s), cX, cY, cw, chh);
+  const sq = squash * .05, grow = (hitstop > 0 ? .06 : 0) + (phase === 'finish' ? .1 * Math.max(0, 1 - finishT / FINISH) + (finishSwap ? .1 * Math.max(0, 1 - (finishT - DORON.swap) / .3) : 0) : 0), cw = Math.round(view.size * DPR * (1 + sq + grow)), chh = Math.round(view.size * DPR * (1 - sq + grow)), cX = X - Math.round((cw - view.size * DPR) / 2), cY = Y + Math.round(view.size * DPR) - chh;
+  ctx.drawImage(sprite(id, f, S.coat, view.s, doron ? { silhouette:'#5b524c' } : {}), cX, cY, cw, chh);
   if (evoFlash > 0){ ctx.globalAlpha = Math.min(1, evoFlash / .35) * .6; ctx.drawImage(sprite(id, f, S.coat, view.s, { silhouette:'#ffffff' }), cX, cY, cw, chh); ctx.globalAlpha = 1; }
   if (S.lock > 0){ ctx.globalAlpha = .18; ctx.fillStyle = '#e5484d'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalAlpha = 1; }
   drawHint(); drawSpot(); drawParts(); drawAnger(); drawBubble(); drawCombo(); drawTimer(); drawMeters(); drawAimHint();
@@ -718,16 +725,26 @@ function frame(now){
 
 // ---------- 判定と結果 ----------
 // 10秒たった瞬間の「そこまで！」：一瞬止めて光らせ、最後の姿を見せてから結果へ
-const FINISH = .45;
-let finishT = 0;
+// 最後の判定で姿が変わる（ミーム・隠し）ときは、煙でドロンと変身してから結果へ。正体は結果画面まで影のまま
+const FINISH = .45, DORON = { smoke:.45, swap:.62, end:1.3 };
+let finishT = 0, finishTo = null, finishSwap = false, finishInfo = null;
 function finish(){
-  phase = 'finish'; ptr.id = null; finishT = FINISH; if (AC){ setP(rustleG.gain, 0); setP(purrG.gain, 0); }
+  phase = 'finish'; ptr.id = null; finishT = 0; finishSwap = false; $('rs').style.display = 'none'; if (AC){ setP(rustleG.gain, 0); setP(purrG.gain, 0); }
+  finishInfo = finalForm(S); finishTo = finishInfo.form !== (S.form || 'normal') ? finishInfo.form : null;
   hitstop = .12; flashAll = .25; shake = Math.max(shake, .7); bubble = FINISH; bubbleTxt = ['そこまで！', '#2a2523'];
   sfx.finish(); if (navigator.vibrate && sound) navigator.vibrate(60);
 }
+function finishStep(dt){
+  const t0 = finishT; finishT += dt; const cross = k => t0 < k && finishT >= k;
+  if (!finishTo){ if (finishT >= FINISH) fire(); return; }
+  if (cross(DORON.smoke)){ sfx.poof(); shake = Math.max(shake, .5); for (let i = 0; i < 26; i++) spawn('smoke'); }
+  if (cross(DORON.swap)){ finishSwap = true; evoFlash = .35; bubble = DORON.end - DORON.swap; bubbleTxt = ['!?', '#5b5fc7']; sfx.newform();
+    $('form').textContent = '？？？'; drawStars(0); document.documentElement.style.setProperty('--line', '#8a7f77'); const t = $('tag'); t.classList.remove('pop', 'slam'); void t.offsetWidth; t.classList.add('slam'); }
+  if (finishT >= DORON.end) fire();
+}
 function fire(){
   phase = 'firing'; ptr.id = null; if (AC){ setP(rustleG.gain, 0); setP(purrG.gain, 0); }
-  resultInfo = { ...finalForm(S), sim:S }; wipe(true);
+  resultInfo = { ...(finishInfo || finalForm(S)), sim:S, from: finishTo ? S.form : null }; finishInfo = null; wipe(true);
   setTimeout(() => { showResult(); wipe(false); }, 420);
 }
 function wipe(on){ $('wipe').classList.toggle('on', on); }
@@ -794,6 +811,7 @@ function drawCard(t){
   if (revealed){ const k = Math.max(0, 1 - (t - .9) * 6);
     if (resultInfo.isNew) stamp(x, 'NEW!', '#e5484d', CW - 200, 250, .16, 1 + k * 1.5);
     if (resultInfo.aim) stamp(x, 'ねらいどおり！', '#e0a800', 270, 250, -.12, 1 + k * 1.5);
+    if (resultInfo.from) stamp(x, `${FORM(resultInfo.from).name}から へんしん！`, '#5b5fc7', CW / 2, 900, -.03, .72 + k * .9);
     if (resultInfo.isBest) stamp(x, 'ベスト更新！', '#4fb878', 240, 390, -.1, .8 + k * 1.2);
     if (t < 2.4 && (resultInfo.isNew || resultInfo.aim)){ const cols = ['#e5484d', '#ffd84a', '#5aa7dc', '#4fb878', '#f28fa0', lc];
       for (let i = 0; i < 70; i++){ const sx = (i * 137.5) % CW, sp = 380 + (i * 53) % 300, y = -40 + (t - .9) * sp + ((i * 71) % 200) - 200, w = Math.sin(t * 6 + i) * 30;
@@ -900,7 +918,8 @@ if (DBG.on){ const q = new URLSearchParams(location.search);
   if (q.get('nohow') !== null) $('howto').classList.remove('on');
   if (q.get('result')){ $('howto').classList.remove('on'); start(); S.dist = 412; S.nade = 52; S.taps = 3; S.regionDist.chin = 300; S.score.melt = 412; S.comboPeak = 18; S.t = P.time;
     setTimeout(() => { phase = 'firing'; resultInfo = { form:q.get('result'), why:null, sim:S }; showResult(); }, 300); }
-  if (q.get('play')){ $('howto').classList.remove('on'); start(); const f = q.get('play'); S.form = f; prevForm = f; S.line = FORM(f).line; setTag(f); setTint(S.line); S.t = 4.2; S.purr = 72; S.irr = 75; S.score.melt = 230; S.score.yokai = 60; } }
+  if (q.get('play')){ $('howto').classList.remove('on'); start(); const f = q.get('play'); S.form = f; prevForm = f; S.line = FORM(f).line; setTag(f); setTint(S.line); S.t = 4.2; S.purr = 72; S.irr = 75; S.score.melt = 230; S.score.yokai = 60;
+    if (q.get('end') !== null){ S.t = P.time - .2; S.irr = 0; if (q.get('spin') !== null) S.spin = 20; } } }   // ?debug&play=liquid&end&spin でドロンを確認
 requestAnimationFrame(frame);
 </script>
 </body>
