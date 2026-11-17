@@ -106,7 +106,7 @@
 
 <div class="ov" id="howto"><div class="sheet pxbox">
   <div class="how" id="howList"></div>
-  <div class="ver">わた｜ver. 0.3.0　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
+  <div class="ver">わた｜ver. 0.4.0　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
 </div></div>
 
 <div class="ov" id="zukan"><div class="sheet pxbox">
@@ -134,7 +134,7 @@
 <script>
 'use strict';
 const { FORMS, LINES, COATS, STYLES, STYLE_BG, render, drawStyled } = CatSprites;
-const APP_VER = '0.3.0';
+const APP_VER = '0.4.0';
 
 /*SIM-START*/
 // ---------- 調整用の数値（ここだけ触れば手ざわりが変わる） ----------
@@ -142,11 +142,11 @@ const P = {
   time: 10,                 // 1プレイの秒数（触った瞬間から）
   slow: 28, fast: 95,       // なでる速さの境目（猫の絵の48マス単位／秒）
   // とろけ系：あご・ほっぺをゆっくり
-  melt: { chin:1.0, head:.35, ear:.1, body:.15, belly:0 }, meltSpeed: [2.6, 1.0, .15],   // [ゆっくり, ふつう, はやい]
+  melt: { chin:.7, head:.35, ear:.1, body:.15, belly:0 }, meltSpeed: [2.6, 1.0, .15],   // [ゆっくり, ふつう, はやい]
   // のびる系：胴を長いストロークで
-  longSeg: { body:.3 }, longStrokeMin: 22, longStroke: 1.1,
+  longSeg: { body:.4 }, longStrokeMin: 24, longStroke: 1.9,
   // 妖系：耳
-  yokai: { ear:2.4, head:.15 },
+  yokai: { ear:2.8, head:.15 },
   // 帯電系：速い往復・逆なで
   elecFast: .45, elecUp: 1.6, elecRev: 5,
   // 怒り系：お腹＋猫パンチ
@@ -157,11 +157,19 @@ const P = {
   purrGain: { chin:.5, head:.45, ear:.4, body:.4, belly:0 }, purrDecay: 9, purrBoost: .8,
   irrBelly: .9, irrFast: .08, irrUp: .1, irrDecay: 7, punchLock: 1.0,
   // 進化のしきい値（その系統の点数）
-  stage: [55, 140, 260, 400], idleStage: [60, 170, 320],
+  stage: [70, 200, 420, 700], idleStage: [60, 170, 320],
   // 隠し・ミーム
   uchu: 70, gainen: 140,
   memeSpinTurns: 3, memeTaps: 12, memeStill: 2.5, memePunch: 5, memeHappyPurr: 90, memeHappyIrr: 35,
   feverMul: 1.6, feverTime: 2.5, spotNeed: 3,   // キラキラを3回なでるとフィーバー（2.5秒、伸びが1.6倍）
+  // なですぎ（同じ所ばかり）：同じ場所を sameFree 秒までは平気、それを超えると1秒ごとに irrSame たまる。手を離すと sameCool 倍の速さで戻る
+  sameFree: 1.6, irrSame: 40, sameCool: 2, sameSpeed: [.45, 1, 1.2],   // [ゆっくり, ふつう, はやい] ゆっくりはたまりにくい
+  // コンボ：往復1回で+1。comboWindow 秒なでないと切れる。1コンボごとに伸びが comboStep 増え、comboMax で頭打ち
+  comboWindow: 1.4, comboStep: .03, comboMax: 20,
+  // 猫パンチの罰：いま一番の系統（怒り以外）が punchLoss 割へる。ゴロゴロも半分に
+  punchLoss: .3, punchPurr: .5,
+  // キラキラ：コンボ+3、ゴロゴロ+12、イライラを spotCalm へらす
+  spotCombo: 3, spotPurr: 12, spotCalm: 35,
   memeNakiPurr: 55, memeNakiIdle: 3.5, memeHappyRegions: 4, memeJouhinDist: 60, memeJouhinMaxV: 60, memeJouhinHead: .8,
 };
 const SYS = ['melt', 'long', 'yokai', 'elec', 'angry'];
@@ -181,12 +189,13 @@ function region(u, v){
 function newSim(coat){
   return { t:0, started:false, over:false, coat, score:{ melt:0, long:0, yokai:0, elec:0, angry:0, idle:0 },
     purr:0, purrPeak:0, irr:0, irrPeak:0, punch:0, lock:0, dist:0, strokes:0, nade:0, segLen:0, taps:0, tapRegions:{}, fever:0, still:0, spin:0, maxV:0,
-    regionDist:{ ear:0, head:0, chin:0, body:0, belly:0 }, bellyRun:0, lastTouch:0, down:false, stroke:null, prevDir:null, prevAng:null, line:'start', stage:0 };
+    regionDist:{ ear:0, head:0, chin:0, body:0, belly:0 }, bellyRun:0, combo:0, comboT:0, comboPeak:0, sameReg:null, sameRun:0, lastTouch:0, down:false, stroke:null, prevDir:null, prevAng:null, line:'start', stage:0 };
 }
 // 指の移動1回ぶん（u,v は48マス座標、dt 秒）
 function simMove(s, u0, v0, u1, v1, dt){
   if (s.over || s.lock > 0) return;
   const dx = u1 - u0, dy = v1 - v0, d = Math.hypot(dx, dy); const v = d / Math.max(dt, 1e-3);
+  if (!s.seg0) s.seg0 = [u0, v0];
   if (s.stroke){ s.stroke.len += d; }
   // 回転（猫の中心まわりの角度）
   const ang = Math.atan2(v1 - 30, u1 - 24), rr = Math.hypot(u1 - 24, v1 - 30);
@@ -197,7 +206,8 @@ function simMove(s, u0, v0, u1, v1, dt){
   const r = region(u1, v1); if (!r) return;
   s.dist += d; s.maxV = Math.max(s.maxV, v); s.regionDist[r] += d;
   const sp = v < P.slow ? 0 : v < P.fast ? 1 : 2, up = dy < -d * .4;
-  const boost = (1 + s.purr / 100 * P.purrBoost) * (s.fever > 0 ? P.feverMul : 1);
+  if (r === s.sameReg) s.sameRun += dt; else { s.sameReg = r; s.sameRun = 0; }
+  const boost = (1 + s.purr / 100 * P.purrBoost) * (s.fever > 0 ? P.feverMul : 1) * comboMul(s);
   s.score.melt += d * (P.melt[r] || 0) * P.meltSpeed[sp] * boost;
   s.score.long += d * (P.longSeg[r] || 0) * boost;
   s.score.yokai += d * (P.yokai[r] || 0) * boost;
@@ -207,29 +217,46 @@ function simMove(s, u0, v0, u1, v1, dt){
   // 往復（向きが反対になった）
   const dir = [dx / d, dy / d];
   const back = s.prevDir && dir[0] * s.prevDir[0] + dir[1] * s.prevDir[1] < -.3;
-  if (back && s.segLen > 4){ s.nade++; s.segLen = 0; }   // 往復1回＝1なで
+  if (back){ longBonus(s, u0, v0); s.seg0 = [u0, v0]; if (s.segLen > 4){ s.nade++; addCombo(s, 1); } s.segLen = 0; }   // 往復1回＝1なで
   s.segLen += d;
   if (back && sp === 2) s.score.elec += P.elecRev * boost;
   s.prevDir = dir;
   // 気持ち
   if (sp < 2 && !up) s.purr = Math.min(100, s.purr + d * (P.purrGain[r] || 0));
-  s.irr += d * ((inBelly ? P.irrBelly : 0) + (sp === 2 ? P.irrFast : 0) + (up ? P.irrUp : 0));
+  s.irr += d * ((inBelly ? P.irrBelly : 0) + (sp === 2 ? P.irrFast : 0) + (up ? P.irrUp : 0)) + (s.sameRun > P.sameFree ? P.irrSame * P.sameSpeed[sp] * dt : 0);
   s.purrPeak = Math.max(s.purrPeak, s.purr);
-  if (s.irr >= 100){ s.irr = 30; s.punch++; s.score.angry += P.punchAngry; s.lock = P.punchLock; s.punched = true; }
+  if (s.irr >= 100) simPunch(s);
   s.irrPeak = Math.max(s.irrPeak, s.irr);
 }
-function simDown(s){ if (s.over) return; s.down = true; s.stroke = { len:0, t:s.t }; s.prevDir = null; s.prevAng = null; s.lastTouch = s.t; }
+function comboMul(s){ return 1 + Math.min(s.combo, P.comboMax) * P.comboStep; }
+function addCombo(s, n){ s.combo += n; s.comboT = P.comboWindow; s.comboPeak = Math.max(s.comboPeak, s.combo); }
+// 猫パンチ：怒り系には得、ほかの系統には痛い（退化することもある）
+function simPunch(s){
+  let best = SYS[0]; for (const k of SYS) if (s.score[k] > s.score[best]) best = k;
+  if (best !== 'angry') s.score[best] *= 1 - P.punchLoss;
+  s.irr = 30; s.punch++; s.score.angry += P.punchAngry; s.lock = P.punchLock; s.punched = true;
+  s.combo = 0; s.comboT = 0; s.fever = 0; s.purr *= P.punchPurr; s.sameRun = 0;
+}
+// キラキラをなでた：コンボが伸び、イライラが引く。spotNeed 回でフィーバー
+function simSpot(s){
+  addCombo(s, P.spotCombo); s.purr = Math.min(100, s.purr + P.spotPurr); s.irr = Math.max(0, s.irr - P.spotCalm); s.sameRun = 0;
+  s.spots = (s.spots || 0) + 1; if (s.spots % P.spotNeed === 0){ s.fever = P.feverTime; return true; } return false;
+}
+// のびる系：ひと方向に長く引いた分＝引きはじめと引き終わりの直線距離（折り返すか指を離したときに数える。小刻みな往復や円は数えない）
+function longBonus(s, u, v){ const c = s.seg0 ? Math.hypot(u - s.seg0[0], v - s.seg0[1]) : 0;
+  if (c > P.longStrokeMin && s.lock <= 0) s.score.long += (c - P.longStrokeMin * .8) * P.longStroke * (1 + s.purr / 100 * P.purrBoost) * comboMul(s); }
+function simDown(s){ if (s.over) return; s.down = true; s.seg0 = null; s.stroke = { len:0, t:s.t }; s.prevDir = null; s.prevAng = null; s.lastTouch = s.t; }
 function simUp(s, u, v){
   if (!s.stroke) return; const st = s.stroke; s.stroke = null; s.down = false; s.lastTouch = s.t;
   if (s.over) return;
-  if (st.len > 2){ s.strokes++; if (s.segLen > 4) s.nade++; s.segLen = 0; }
+  if (st.len > 2){ s.strokes++; longBonus(s, u, v); if (s.segLen > 4){ s.nade++; addCombo(s, 1); } } s.segLen = 0;
   if (s.t - st.t < .22 && st.len < 3){ s.taps++; const r = region(u, v); if (r) s.tapRegions[r] = 1; }
-  if (st.len > P.longStrokeMin && s.lock <= 0) s.score.long += (st.len - P.longStrokeMin * .8) * P.longStroke * (1 + s.purr / 100 * P.purrBoost);
 }
 function simTick(s, dt){
   if (!s.started || s.over) return;
   s.t += dt; s.lock = Math.max(0, s.lock - dt); s.fever = Math.max(0, (s.fever || 0) - dt);
-  if (!s.down){ if (s.t - s.lastTouch > P.idleGrace) s.score.idle += P.idleRate * dt; s.purr = Math.max(0, s.purr - P.purrDecay * dt); }
+  if ((s.comboT -= dt) <= 0) s.combo = 0;
+  if (!s.down){ s.sameRun = Math.max(0, s.sameRun - P.sameCool * dt); if (s.t - s.lastTouch > P.idleGrace) s.score.idle += P.idleRate * dt; s.purr = Math.max(0, s.purr - P.purrDecay * dt); }
   s.irr = Math.max(0, s.irr - P.irrDecay * dt);
   const lv = liveForm(s); s.line = lv.line; s.stage = lv.stage; s.form = lv.form;
   if (s.t >= P.time){ s.t = P.time; s.over = true; }
@@ -408,6 +435,10 @@ const sfx = {
   fever(){ [0, 4, 7, 12, 16, 19, 24].forEach((st, i) => tone(523 * Math.pow(2, st / 12), .1, 'square', .07, 0, i * .04)); },
   evoBig(stage){ thump(.35); const q = [0, 4, 7, 12, 16, 19, 24].slice(0, 3 + Math.min(4, stage)); q.forEach((st, i) => tone(392 * Math.pow(2, st / 12), .13, 'square', .08, 0, i * .055)); tone(392 * Math.pow(2, q[q.length - 1] / 12), .45, 'triangle', .12, 0, q.length * .055); },
   newform(){ [1319, 1568, 2093, 2637].forEach((f, i) => tone(f, .07, 'square', .05, 0, .4 + i * .05)); },
+  growl(){ tone(150, .28, 'sawtooth', .09, -50); tone(95, .32, 'square', .05, -25, .04); },
+  devo(){ [784, 622, 523, 392].forEach((f, i) => tone(f, .12, 'triangle', .1, -30, i * .07)); },
+  comboBreak(){ tone(330, .14, 'triangle', .07, -140); },
+  max(){ [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, .08, 'square', .06, 0, i * .04)); },
   aim(){ [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, .13, 'square', .08, 0, .25 + i * .085)); },
 };
 function setSound(on){ sound = on; LS.set('neko_sound', on); $('sIco').dataset.ico = on ? 'sound' : 'mute'; paintIcons($('sbtn')); if (master) setP(master.gain, on ? .9 : 0); }
@@ -447,34 +478,36 @@ addEventListener('keydown', e => { if (e.key === 'Enter' && phase === 'result') 
 function newRound(){
   const coats = Object.keys(COATS); const coat = coats[Math.floor(Math.random() * coats.length)];
   S = newSim(coat); phase = 'ready'; prevForm = 'normal'; parts = []; shake = 0; evoFlash = 0; bubble = 0;
-  spot = null; combo = 0; comboT = 0; feverN = 0; hitstop = 0; flashAll = 0; meterPulse = {}; zStart = zData(); newThisRound = []; setAim(pickAim());
+  spot = null; lastCombo = 0; warned = false; hitstop = 0; flashAll = 0; meterPulse = {}; zStart = zData(); newThisRound = []; setAim(pickAim());
   $('coatIco').src = iconURL('paw', COATS[coat].map.F === '#fbf8f3' ? '#d8cfc3' : COATS[coat].map.F); $('coatName').textContent = COATS[coat].name;
   setTag('normal'); $('pre').style.display = 'flex'; $('rs').style.display = 'none'; setTint('start');
 }
 function start(){ S.started = true; phase = 'play'; $('pre').style.display = 'none'; $('rs').style.display = 'grid'; }
-function onPunch(){ sfx.punch(); shake = 1; bubble = .9; bubbleTxt = ['シャーッ！', '#e5484d']; combo = 0; spawn('paw'); if (navigator.vibrate && sound) navigator.vibrate([40, 30, 60]); }
+function onPunch(){ sfx.punch(); shake = 1; hitstop = .12; squash = -2.5; bubble = .9; bubbleTxt = ['シャーッ！', '#e5484d']; lastCombo = 0; warned = false; spawn('paw'); if (navigator.vibrate && sound) navigator.vibrate([40, 30, 60]); }
 let lastTick = -1, vibT = 0;
 function update(dt){
   if (phase === 'play'){
     simTick(S, dt);
-    if (S.form && S.form !== prevForm){ prevForm = S.form; onEvo(S.form); }
+    if (S.form && S.form !== prevForm){ const down = FORM(S.form).stage < FORM(prevForm).stage; prevForm = S.form; if (down) onDevo(S.form); else onEvo(S.form); }
+    // なですぎの予告（パンチの前に一度だけ）
+    if (!warned && S.irr > 70 && S.lock <= 0){ warned = true; sfx.growl(); bubble = .8; bubbleTxt = ['ムッ…', '#e5484d']; } else if (S.irr < 45) warned = false;
     // キラキラ（逃げる）
     if (!spot) moveSpot(); else if (spot.pop > 0){ if ((spot.pop -= dt) <= 0) moveSpot(); } else if ((spot.t += dt) > spot.life) moveSpot();
-    if ((comboT -= dt) <= 0) combo = 0;
+    if (S.combo === 0 && lastCombo >= 5 && S.lock <= 0) sfx.comboBreak(); lastCombo = S.combo;
     if (S.fever > 0 && (feverBeat -= dt) <= 0){ feverBeat = .12; tone(1047 * Math.pow(2, [0, 4, 7, 9, 12][Math.floor(Math.random() * 5)] / 12), .05, 'square', .03); }
     const left = P.time - S.t; if (left < 3 && Math.ceil(left) !== lastTick){ lastTick = Math.ceil(left); sfx.tick(); }
     if (S.purr > 50 && S.down && navigator.vibrate && sound && (vibT -= dt) <= 0){ navigator.vibrate(12); vibT = .14; }
     if (S.over) fire();
   }
   if (AC){ const on = phase === 'play' && S.down && S.lock <= 0; setP(purrG.gain, sound && on ? S.purr / 100 * .5 : 0, .15); setP(purrLfo.frequency, 20 + S.purr * .06); }
-  comboPop = Math.max(0, comboPop - dt * 4); squash = Math.max(0, squash - dt * 7); for (const k in meterPulse) meterPulse[k] = Math.max(0, meterPulse[k] - dt);
+  comboPop = Math.max(0, comboPop - dt * 4); squash = squash > 0 ? Math.max(0, squash - dt * 7) : Math.min(0, squash + dt * 7); for (const k in meterPulse) meterPulse[k] = Math.max(0, meterPulse[k] - dt);
   for (const p of parts) if (p.kind === 'fly' && p.life - dt <= 0) meterPulse[p.key] = .3;
   shake = Math.max(0, shake - dt * 2.5); evoFlash = Math.max(0, evoFlash - dt); bubble = Math.max(0, bubble - dt);
   parts = parts.filter(p => (p.life -= dt) > 0); for (const p of parts){ p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; }
 }
 
 // ---------- 手ごたえ（コンボ・キラキラ・進化・ねらい） ----------
-let spot = null, combo = 0, comboT = 0, comboPop = 0, feverN = 0, feverBeat = 0, hitstop = 0, flashAll = 0, squash = 0, meterPulse = {}, bubbleTxt = ['シャーッ！', '#e5484d'];
+let spot = null, lastCombo = 0, warned = false, comboPop = 0, feverBeat = 0, hitstop = 0, flashAll = 0, squash = 0, meterPulse = {}, bubbleTxt = ['シャーッ！', '#e5484d'];
 let aim = null, aimHit = false, zStart = {}, newThisRound = [], aimBase = null;
 const SPOTS = { ear:[[14, 8], [34, 8]], head:[[24, 13], [19, 15], [29, 15]], chin:[[24, 24], [20, 23], [28, 23]], body:[[15, 36], [33, 36], [24, 45]], belly:[[24, 35], [24, 40]] };
 // ねらいの絵ヒント：[なでる場所, なで方のアイコン]
@@ -520,15 +553,20 @@ function moveSpot(){
   spot = { u:p[0], v:p[1], t:0, life:2.2, pop:0 };
 }
 function onSpot(x, y){
-  combo += 3; comboT = 1.1; comboPop = 1; S.purr = Math.min(100, S.purr + 12); feverN++; spot.pop = .3;
-  sfx.spot(feverN); for (let i = 0; i < 12; i++) spawn('star', x, y); spawn('ring', x, y);
+  const fever = simSpot(S); comboPop = 1; spot.pop = .3; warned = false;
+  sfx.spot((S.spots - 1) % P.spotNeed + 1); for (let i = 0; i < 12; i++) spawn('star', x, y); spawn('ring', x, y);
   if (navigator.vibrate && sound) navigator.vibrate(25);
-  if (feverN >= P.spotNeed){ feverN = 0; S.fever = P.feverTime; sfx.fever(); flashAll = .2; shake = Math.max(shake, .5); bubble = 1; bubbleTxt = ['フィーバー！', '#e0a800']; }
+  if (fever){ sfx.fever(); flashAll = .2; shake = Math.max(shake, .5); bubble = 1; bubbleTxt = ['フィーバー！', '#e0a800']; }
 }
 function onNade(x, y){
-  combo++; comboT = 1.1; comboPop = 1; squash = 1; sfx.nade(combo);
+  const c = S.combo; comboPop = 1; squash = 1 + Math.min(c, P.comboMax) / P.comboMax; sfx.nade(c);
   const k = leadKey(), [tx, ty] = meterPos(k); parts.push({ kind:'fly', x0:x, y0:y, tx, ty, key:k, x, y, vx:0, vy:0, g:0, life:.45, max:.45 });
-  if (combo % 10 === 0){ sfx.combo(); for (let i = 0; i < 10; i++) spawn('star', x, y); }
+  if (c === P.comboMax){ sfx.max(); bubble = .8; bubbleTxt = ['コンボMAX！', '#e0a800']; for (let i = 0; i < 16; i++) spawn('star', x, y); }
+  else if (c % 10 === 0){ sfx.combo(); for (let i = 0; i < 10; i++) spawn('star', x, y); }
+}
+function onDevo(id){
+  setTag(id); setTint(S.line); sfx.devo(); for (let i = 0; i < 8; i++) spawn('puff');
+  if (!zData()[id]){ zRecord(id, S.coat); newThisRound.push(id); }
 }
 function onEvo(id){
   const fm = FORM(id); evoFlash = .35; flashAll = .25; hitstop = .14 + .03 * fm.stage; shake = Math.max(shake, .9);
@@ -625,12 +663,15 @@ function drawSpot(){
   for (const [col, o] of [['#ffffff', 1], ['#ffd84a', 0]]){ ctx.fillStyle = col; pat.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') ctx.fillRect(Math.round(cx + (i - 2.5) * bb) - o * b, Math.round(cy + (j - 2.5) * bb) - o * b, bb + o * 2 * b, bb + o * 2 * b); })); }
 }
 function drawCombo(){
-  if (phase !== 'play' || combo < 2) return;
+  const combo = S.combo, max = combo >= P.comboMax; if (phase !== 'play' || combo < 2) return;
   const X = Math.round((view.ox + view.size * .86) * DPR), Y = Math.round((view.oy + view.size * .3) * DPR);
   const sz = Math.round((view.s * 5 * (1 + comboPop * .5) + Math.min(combo, 40) * .1 * view.s));
   ctx.font = `${sz}px DotGothic16`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = Math.max(4, view.s); ctx.lineJoin = 'round';
-  const col = S.fever > 0 ? `hsl(${(animT * 600) % 360},90%,55%)` : (LINE_COLOR[S.line] || '#f08a5d');
+  const col = S.fever > 0 || max ? `hsl(${(animT * 600) % 360},90%,55%)` : (LINE_COLOR[S.line] || '#f08a5d');
   ctx.strokeStyle = '#ffffff'; ctx.strokeText(`×${combo}`, X, Y); ctx.fillStyle = col; ctx.fillText(`×${combo}`, X, Y);
+  // 伸びの倍率（コンボで点の伸びが上がることを見せる）
+  ctx.font = `${Math.round(view.s * 3)}px DotGothic16`; ctx.lineWidth = Math.max(3, view.s * .7); const m = max ? 'MAX' : `のび${comboMul(S).toFixed(1)}`;
+  ctx.strokeText(m, X, Y + sz * .8); ctx.fillStyle = col; ctx.fillText(m, X, Y + sz * .8);
 }
 function drawFever(){
   if (phase !== 'play' || !(S.fever > 0)) return; const cx = (view.ox + view.size / 2) * DPR, cy = (view.oy + view.size / 2) * DPR, R = Math.max(cv.width, cv.height);
@@ -676,13 +717,17 @@ let revealT = 0, cardPNG = null, skipReveal = false;
 function showResult(){
   phase = 'result'; revealT = 0; cardPNG = null; skipReveal = false; $('result').classList.add('on'); document.body.classList.add('res'); $('rs').style.display = 'none';
   const fm = FORM(resultInfo.form); resultInfo.isNew = !zStart[fm.id]; if (!zData()[fm.id]) newThisRound.push(fm.id); zRecord(resultInfo.form, S.coat);
-  resultInfo.aim = aimHit || fm.id === aim; if (fm.id === aim) aimHit = true; setTint(fm.line); setTag(fm.id); zProg();
+  resultInfo.aim = aimHit || fm.id === aim; if (fm.id === aim) aimHit = true;
+  // なでポイント＝全系統の点の合計（コンボ・フィーバーで伸び、パンチで減る）。形態ごとにベストを残す
+  const bests = LS.get('neko_best_v1', {}), prevBest = bests[fm.id] || 0; resultInfo.pts = Math.round(Object.values(S.score).reduce((a, b) => a + b, 0));
+  resultInfo.isBest = !resultInfo.isNew && prevBest > 0 && resultInfo.pts > prevBest; resultInfo.best = Math.max(prevBest, resultInfo.pts);
+  if (resultInfo.pts > prevBest){ bests[fm.id] = resultInfo.pts; LS.set('neko_best_v1', bests); } setTint(fm.line); setTag(fm.id); zProg();
   const t0r = performance.now(); let ticked = 0;
   const step = () => {
     const t = Math.max((performance.now() - t0r) / 1000, skipReveal ? .9 : 0); revealT = t;
     if (t < .9 && Math.floor(t * 10) > ticked){ ticked = Math.floor(t * 10); sfx.tick(); }
     drawCard(t);
-    if (t >= .9 && !resultInfo.revealed){ resultInfo.revealed = true; sfx.reveal(); if (resultInfo.isNew) sfx.newform(); if (resultInfo.aim) sfx.aim(); zProg(true); }
+    if (t >= .9 && !resultInfo.revealed){ resultInfo.revealed = true; sfx.reveal(); if (resultInfo.isNew) sfx.newform(); if (resultInfo.aim) sfx.aim(); if (resultInfo.isBest) sfx.newform(); zProg(true); }
     if (t < 2.4 && phase === 'result') requestAnimationFrame(step); else if (phase === 'result') cardPNG = $('card').toDataURL('image/png');
   };
   document.fonts.load('40px DotGothic16').finally(() => requestAnimationFrame(step));
@@ -714,7 +759,7 @@ function drawCard(t){
   // 記録（アイコン＋値）
   if (revealed){
     x.fillStyle = '#2a2523'; x.fillRect(56, 1160, CW - 112, 190); x.fillStyle = dark ? '#1c1816' : '#fffdf8'; x.fillRect(65, 1169, CW - 130, 172);
-    const cells = [['paw', `${s.nade + s.taps}`], ['ruler', `${(s.dist * .0083).toFixed(1)}m`], ['pin', topRegion(s)], ['claw', `${s.punch}`]];
+    const cells = [['star', `${resultInfo.pts}`], ['paw', `${s.comboPeak}`], ['pin', topRegion(s)], ['claw', `${s.punch}`]];
     cells.forEach(([ico, v], i) => { const cx = 175 + i * 243; drawIcon(x, ico, cx - 36, 1186, 6, lc); x.fillStyle = ink; x.font = '54px DotGothic16'; x.fillText(v, cx, 1296); });
   }
   x.font = '30px DotGothic16'; x.fillStyle = sub; x.textAlign = 'left'; x.fillText('#10秒なですぎ猫', 56, 1400);
@@ -722,9 +767,11 @@ function drawCard(t){
   if (revealed){ const k = Math.max(0, 1 - (t - .9) * 6);
     if (resultInfo.isNew) stamp(x, 'NEW!', '#e5484d', CW - 200, 250, .16, 1 + k * 1.5);
     if (resultInfo.aim) stamp(x, 'ねらいどおり！', '#e0a800', 270, 250, -.12, 1 + k * 1.5);
+    if (resultInfo.isBest) stamp(x, 'ベスト更新！', '#4fb878', 240, 390, -.1, .8 + k * 1.2);
     if (t < 2.4 && (resultInfo.isNew || resultInfo.aim)){ const cols = ['#e5484d', '#ffd84a', '#5aa7dc', '#4fb878', '#f28fa0', lc];
       for (let i = 0; i < 70; i++){ const sx = (i * 137.5) % CW, sp = 380 + (i * 53) % 300, y = -40 + (t - .9) * sp + ((i * 71) % 200) - 200, w = Math.sin(t * 6 + i) * 30;
         x.fillStyle = cols[i % cols.length]; x.fillRect(Math.round((sx + w) / 12) * 12, Math.round(y / 12) * 12, 24, 12 + (i % 2) * 12); } } }
+  if (revealed && resultInfo.best){ x.textAlign = 'center'; x.fillText(`ベスト ${resultInfo.best}`, CW / 2, 1400); }
   x.textAlign = 'right'; const d = new Date(); x.fillText(`${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`, CW - 56, 1400);
 }
 function stamp(x, txt, col, cx, cy, rot, sc){
@@ -817,7 +864,7 @@ document.fonts.load('20px DotGothic16').finally(resize); resize();
 if (!LS.get('neko_howto_v1', 0)) $('howto').classList.add('on');
 if (DBG.on){ const q = new URLSearchParams(location.search);
   if (q.get('nohow') !== null) $('howto').classList.remove('on');
-  if (q.get('result')){ $('howto').classList.remove('on'); start(); S.dist = 412; S.nade = 52; S.taps = 3; S.regionDist.chin = 300; S.t = P.time;
+  if (q.get('result')){ $('howto').classList.remove('on'); start(); S.dist = 412; S.nade = 52; S.taps = 3; S.regionDist.chin = 300; S.score.melt = 412; S.comboPeak = 18; S.t = P.time;
     setTimeout(() => { phase = 'firing'; resultInfo = { form:q.get('result'), why:null, sim:S }; showResult(); }, 300); }
   if (q.get('play')){ $('howto').classList.remove('on'); start(); const f = q.get('play'); S.form = f; prevForm = f; S.line = FORM(f).line; setTag(f); setTint(S.line); S.t = 4.2; S.purr = 72; S.irr = 75; S.score.melt = 230; S.score.yokai = 60; } }
 requestAnimationFrame(frame);
