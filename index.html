@@ -106,7 +106,7 @@
 
 <div class="ov" id="howto"><div class="sheet pxbox">
   <div class="how" id="howList"></div>
-  <div class="ver">わた｜ver. 0.4.2　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
+  <div class="ver">わた｜ver. 0.4.3　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
 </div></div>
 
 <div class="ov" id="zukan"><div class="sheet pxbox">
@@ -134,7 +134,7 @@
 <script>
 'use strict';
 const { FORMS, LINES, COATS, STYLES, STYLE_BG, render, drawStyled } = CatSprites;
-const APP_VER = '0.4.2';
+const APP_VER = '0.4.3';
 
 /*SIM-START*/
 // ---------- 調整用の数値（ここだけ触れば手ざわりが変わる） ----------
@@ -161,7 +161,7 @@ const P = {
   // 隠し・ミーム
   uchu: 70, gainen: 140,
   memeSpinTurns: 3, memeTaps: 12, memeStill: 2.5, memePunch: 5, memeHappyPurr: 90, memeHappyIrr: 35,
-  feverMul: 1.6, feverTime: 2.5, spotNeed: 3,   // キラキラを3回なでるとフィーバー（2.5秒、伸びが1.6倍）
+  feverMul: 1.6, feverTime: 2.0, spotNeed: 3,   // キラキラを続けて3回なでるとフィーバー（2秒、伸びが1.6倍）。取り逃がし・猫パンチで数え直し
   // なですぎ（同じ所ばかり）：同じ場所を sameFree 秒までは平気、それを超えると1秒ごとに irrSame たまる。手を離すと sameCool 倍の速さで戻る
   sameFree: 1.6, irrSame: 40, sameCool: 2, sameSpeed: [.45, 1, 1.2],   // [ゆっくり, ふつう, はやい] ゆっくりはたまりにくい
   // コンボ：往復1回で+1。comboWindow 秒なでないと切れる。1コンボごとに伸びが comboStep 増え、comboMax で頭打ち
@@ -235,13 +235,16 @@ function simPunch(s){
   let best = SYS[0]; for (const k of SYS) if (s.score[k] > s.score[best]) best = k;
   if (best !== 'angry') s.score[best] *= 1 - P.punchLoss;
   s.irr = 30; s.punch++; s.score.angry += P.punchAngry; s.lock = P.punchLock; s.punched = true;
-  s.combo = 0; s.comboT = 0; s.fever = 0; s.purr *= P.punchPurr; s.sameRun = 0;
+  s.combo = 0; s.comboT = 0; s.fever = 0; s.purr *= P.punchPurr; s.sameRun = 0; s.spotRun = 0;
 }
 // キラキラをなでた：コンボが伸び、イライラが引く。spotNeed 回でフィーバー
 function simSpot(s){
   addCombo(s, P.spotCombo); s.purr = Math.min(100, s.purr + P.spotPurr); s.irr = Math.max(0, s.irr - P.spotCalm); s.sameRun = 0;
-  s.spots = (s.spots || 0) + 1; if (s.spots % P.spotNeed === 0){ s.fever = P.feverTime; return true; } return false;
+  s.spots = (s.spots || 0) + 1; s.spotRun = (s.spotRun || 0) + 1;
+  if (s.spotRun >= P.spotNeed){ s.spotRun = 0; s.fever = P.feverTime; return true; } return false;
 }
+// キラキラを取り逃がした：続けて取った数が0に戻る
+function simSpotMiss(s){ s.spotRun = 0; }
 // のびる系：ひと方向に長く引いた分＝引きはじめと引き終わりの直線距離（折り返すか指を離したときに数える。小刻みな往復や円は数えない）
 function longBonus(s, u, v){ const c = s.seg0 ? Math.hypot(u - s.seg0[0], v - s.seg0[1]) : 0;
   if (c > P.longStrokeMin && s.lock <= 0) s.score.long += (c - P.longStrokeMin * .8) * P.longStroke * (1 + s.purr / 100 * P.purrBoost) * comboMul(s); }
@@ -389,7 +392,8 @@ function resize(){
   const ctrl = $('ctrl').getBoundingClientRect(); ui.mY = ctrl.top;
   const pre = $('pre'); const preH = 64; pre.style.top = (ui.mY - preH - 6) + 'px';
   ui.timerY = $('tag').getBoundingClientRect().bottom + 14;
-  const top = ui.timerY + 12 * Math.max(2, Math.round(DPR * 1.5)) / DPR + 12, bottom = ui.mY - preH - 14;
+  ui.scoreY = ui.timerY + 12 * Math.max(2, Math.round(DPR * 1.5)) / DPR + 6;   // 肉球タイマーのすぐ下にスコア
+  const top = ui.scoreY + 26 + 8, bottom = ui.mY - preH - 14;
   const avail = Math.min(W - 24, bottom - top);
   const s = Math.max(2, Math.floor(avail * DPR / 48));   // 実ピクセルで整数倍（ドットを崩さない）
   view.s = s; view.size = 48 * s / DPR; view.ox = (W - view.size) / 2; view.oy = top + (bottom - top - view.size) / 2;
@@ -496,7 +500,7 @@ function update(dt){
     // なですぎの予告（パンチの前に一度だけ）
     if (!warned && S.irr > 70 && S.lock <= 0){ warned = true; sfx.growl(); bubble = .8; bubbleTxt = ['ムッ…', '#e5484d']; } else if (S.irr < 45) warned = false;
     // キラキラ（逃げる）
-    if (!spot) moveSpot(); else if (spot.pop > 0){ if ((spot.pop -= dt) <= 0) moveSpot(); } else if ((spot.t += dt) > spot.life) moveSpot();
+    if (!spot) moveSpot(); else if (spot.pop > 0){ if ((spot.pop -= dt) <= 0) moveSpot(); } else if ((spot.t += dt) > spot.life){ if (S.spotRun) sfx.comboBreak(); simSpotMiss(S); moveSpot(); }
     if (S.combo === 0 && lastCombo >= 5 && S.lock <= 0) sfx.comboBreak(); lastCombo = S.combo;
     if (S.fever > 0 && (feverBeat -= dt) <= 0){ feverBeat = .12; tone(1047 * Math.pow(2, [0, 4, 7, 9, 12][Math.floor(Math.random() * 5)] / 12), .05, 'square', .03); }
     const left = P.time - S.t; if (left < 3 && Math.ceil(left) !== lastTick){ lastTick = Math.ceil(left); sfx.tick(); }
@@ -558,7 +562,7 @@ function moveSpot(){
 }
 function onSpot(x, y){
   const fever = simSpot(S); comboPop = 1; spot.pop = .3; warned = false;
-  sfx.spot((S.spots - 1) % P.spotNeed + 1); for (let i = 0; i < 12; i++) spawn('star', x, y); spawn('ring', x, y);
+  sfx.spot(fever ? P.spotNeed : S.spotRun); for (let i = 0; i < 12; i++) spawn('star', x, y); spawn('ring', x, y);
   if (navigator.vibrate && sound) navigator.vibrate(25);
   if (fever){ sfx.fever(); flashAll = .2; shake = Math.max(shake, .5); bubble = 1; bubbleTxt = ['フィーバー！', '#e0a800']; }
 }
@@ -699,9 +703,26 @@ function drawFever(){
 }
 
 // ---------- 描画 ----------
-let t0 = performance.now(), animT = 0;
+// スコア（なでポイント＝全系統の点の合計。結果画面の☆と同じ値）を常に出す。数字はすばやく追いつく
+let scoreDisp = 0, scorePop = 0;
+function scoreNow(){ return phase === 'ready' ? 0 : Object.values(S.score).reduce((a, b) => a + b, 0); }
+function drawScore(){
+  const target = scoreNow(), prev = Math.round(scoreDisp);
+  scoreDisp = target < scoreDisp ? target : scoreDisp + (target - scoreDisp) * Math.min(1, frameDt * 14);
+  if (Math.round(scoreDisp) - prev >= 12) scorePop = 1; scorePop = Math.max(0, scorePop - frameDt * 5);
+  const fever = phase === 'play' && S.fever > 0, dark = document.body.classList.contains('dark');
+  const col = fever ? `hsl(${(animT * 600) % 360},90%,55%)` : (dark ? '#f2ede6' : '#2a2523');
+  const sz = Math.round(22 * DPR * (1 + scorePop * .25)), b = Math.max(1, Math.round(sz / 14)), cx = Math.round(cv.width / 2), cy = Math.round((ui.scoreY + 13) * DPR);
+  const txt = `${Math.round(scoreDisp)}`; ctx.font = `${sz}px DotGothic16`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(txt).width, iw = 12 * b, gap = 4 * DPR, x0 = Math.round(cx - (iw + gap + tw) / 2);
+  drawIcon(ctx, 'star', x0, cy - 6 * b, b, fever ? col : '#e0a800');
+  ctx.lineWidth = Math.max(3, sz / 6); ctx.lineJoin = 'round'; ctx.strokeStyle = dark ? '#1c1816' : '#ffffff'; ctx.strokeText(txt, x0 + iw + gap, cy + DPR);
+  ctx.fillStyle = col; ctx.fillText(txt, x0 + iw + gap, cy + DPR);
+  if (fever){ ctx.font = `${Math.round(sz * .6)}px DotGothic16`; const m = `×${P.feverMul}`; ctx.strokeText(m, x0 + iw + gap * 2 + tw, cy + DPR); ctx.fillText(m, x0 + iw + gap * 2 + tw, cy + DPR); }
+}
+let t0 = performance.now(), animT = 0, frameDt = 0;
 function frame(now){
-  const dt = Math.min(.05, (now - t0) / 1000); t0 = now; animT += dt;
+  const dt = Math.min(.05, (now - t0) / 1000); t0 = now; animT += dt; frameDt = dt;
   if (hitstop > 0) hitstop -= dt; else update(dt);
   flashAll = Math.max(0, flashAll - dt);
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = false;
@@ -717,7 +738,7 @@ function frame(now){
   ctx.drawImage(sprite(id, f, S.coat, view.s, doron ? { silhouette:'#5b524c' } : {}), cX, cY, cw, chh);
   if (evoFlash > 0){ ctx.globalAlpha = Math.min(1, evoFlash / .35) * .6; ctx.drawImage(sprite(id, f, S.coat, view.s, { silhouette:'#ffffff' }), cX, cY, cw, chh); ctx.globalAlpha = 1; }
   if (S.lock > 0){ ctx.globalAlpha = .18; ctx.fillStyle = '#e5484d'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalAlpha = 1; }
-  drawHint(); drawSpot(); drawParts(); drawAnger(); drawBubble(); drawCombo(); drawTimer(); drawMeters(); drawAimHint();
+  drawHint(); drawSpot(); drawParts(); drawAnger(); drawBubble(); drawCombo(); drawTimer(); drawScore(); drawMeters(); drawAimHint();
   if (flashAll > 0){ ctx.globalAlpha = Math.min(.3, flashAll * 1.2); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalAlpha = 1; }
   if (DBG.on) dbgDraw();
   requestAnimationFrame(frame);
