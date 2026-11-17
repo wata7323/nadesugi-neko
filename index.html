@@ -106,7 +106,7 @@
 
 <div class="ov" id="howto"><div class="sheet pxbox">
   <div class="how" id="howList"></div>
-  <div class="ver">わた｜ver. 0.4.0　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
+  <div class="ver">わた｜ver. 0.4.1　<a href="https://x.com/watawatasuruwat" target="_blank" rel="noopener">X:@watawatasuruwat</a></div>
 </div></div>
 
 <div class="ov" id="zukan"><div class="sheet pxbox">
@@ -134,7 +134,7 @@
 <script>
 'use strict';
 const { FORMS, LINES, COATS, STYLES, STYLE_BG, render, drawStyled } = CatSprites;
-const APP_VER = '0.4.0';
+const APP_VER = '0.4.1';
 
 /*SIM-START*/
 // ---------- 調整用の数値（ここだけ触れば手ざわりが変わる） ----------
@@ -439,6 +439,7 @@ const sfx = {
   devo(){ [784, 622, 523, 392].forEach((f, i) => tone(f, .12, 'triangle', .1, -30, i * .07)); },
   comboBreak(){ tone(330, .14, 'triangle', .07, -140); },
   max(){ [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, .08, 'square', .06, 0, i * .04)); },
+  finish(){ thump(.5); tone(1568, .05, 'square', .08); tone(784, .3, 'square', .07, 0, .05); },
   aim(){ [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, .13, 'square', .08, 0, .25 + i * .085)); },
 };
 function setSound(on){ sound = on; LS.set('neko_sound', on); $('sIco').dataset.ico = on ? 'sound' : 'mute'; paintIcons($('sbtn')); if (master) setP(master.gain, on ? .9 : 0); }
@@ -448,7 +449,7 @@ const ptr = { id:null, x:0, y:0, t:0 };
 function toUV(x, y){ return [(x - view.ox) / view.size * 48, (y - view.oy) / view.size * 48]; }
 cv.addEventListener('pointerdown', e => {
   audioInit(); if (AC && AC.state === 'suspended') AC.resume();
-  if (phase === 'result' || phase === 'firing' || ptr.id !== null) return;
+  if (phase === 'result' || phase === 'firing' || phase === 'finish' || ptr.id !== null) return;
   const [u, v] = toUV(e.clientX, e.clientY);
   if (phase === 'ready'){ if (!region(u, v)) return; start(); }
   cv.setPointerCapture(e.pointerId); ptr.id = e.pointerId; ptr.x = e.clientX; ptr.y = e.clientY; ptr.t = performance.now();
@@ -497,8 +498,8 @@ function update(dt){
     if (S.fever > 0 && (feverBeat -= dt) <= 0){ feverBeat = .12; tone(1047 * Math.pow(2, [0, 4, 7, 9, 12][Math.floor(Math.random() * 5)] / 12), .05, 'square', .03); }
     const left = P.time - S.t; if (left < 3 && Math.ceil(left) !== lastTick){ lastTick = Math.ceil(left); sfx.tick(); }
     if (S.purr > 50 && S.down && navigator.vibrate && sound && (vibT -= dt) <= 0){ navigator.vibrate(12); vibT = .14; }
-    if (S.over) fire();
-  }
+    if (S.over) finish();
+  } else if (phase === 'finish'){ if ((finishT -= dt) <= 0) fire(); }
   if (AC){ const on = phase === 'play' && S.down && S.lock <= 0; setP(purrG.gain, sound && on ? S.purr / 100 * .5 : 0, .15); setP(purrLfo.frequency, 20 + S.purr * .06); }
   comboPop = Math.max(0, comboPop - dt * 4); squash = squash > 0 ? Math.max(0, squash - dt * 7) : Math.min(0, squash + dt * 7); for (const k in meterPulse) meterPulse[k] = Math.max(0, meterPulse[k] - dt);
   for (const p of parts) if (p.kind === 'fly' && p.life - dt <= 0) meterPulse[p.key] = .3;
@@ -627,11 +628,22 @@ function drawTimer(){
 function drawMeters(){
   const b = ui.b, gap = 5 * b, w = 7 * 12 * b + 6 * gap, X0 = Math.round((cv.width - w) / 2), Y = Math.round(ui.mY * DPR);
   const lead = S.line;
+  let top = 'melt'; for (const k of SYS) if (S.score[k] > S.score[top]) top = k; if (S.started && S.score.idle > S.score[top]) top = 'idle';
   METERS.forEach(([ico, key, c], i) => {
-    const val = key === 'purr' ? S.purr / 100 : Math.min(1, S.score[key] / (key === 'idle' ? P.idleStage[2] : P.stage[3]));
+    // 系統のゲージは「いまの段階から次の段階まで」を 0→1 で見せる。下の点が到達した段階
+    const m = key === 'purr' ? { p:S.purr / 100, st:0, n:0 } : meterStage(key);
+    const near = key === top && m.n && m.st < m.n && m.p >= .85 && phase === 'play';   // 進化の直前はぷるぷる震える
     const pu = meterPulse[key] || 0; const col = pu > .18 ? '#ffffff' : (c || LINE_COLOR[key]); const bounce = (key === lead && phase === 'play' ? -Math.round(Math.abs(Math.sin(animT * 8)) * 2) * b : 0) - (pu > 0 ? 2 * b : 0);
-    drawIcon(ctx, ico, X0 + i * (12 * b + gap), Y + bounce, b, col, { fill:Math.max(val, pu > .18 ? 1 : 0), base:'rgba(42,37,35,.13)' });
+    const X = X0 + i * (12 * b + gap) + (near ? (Math.floor(animT * 24) % 2 ? b : -b) : 0);
+    drawIcon(ctx, ico, X, Y + bounce, b, col, { fill:Math.max(m.p, pu > .18 ? 1 : 0), base:'rgba(42,37,35,.13)' });
+    for (let k = 0; k < m.n; k++){ ctx.fillStyle = k < m.st ? (c || LINE_COLOR[key]) : 'rgba(42,37,35,.16)';
+      ctx.fillRect(X0 + i * (12 * b + gap) + 6 * b - m.n * b + k * 2 * b + Math.round(b / 2), Y + 13 * b, b, b); }
   });
+}
+function meterStage(key){
+  const th = key === 'idle' ? P.idleStage : P.stage, v = S.score[key]; let st = 0; while (st < th.length && v >= th[st]) st++;
+  if (st >= th.length) return { p:1, st, n:th.length };
+  const lo = st ? th[st - 1] : 0; return { p:(v - lo) / (th[st] - lo), st, n:th.length };
 }
 function drawAnger(){
   if (phase !== 'play' || S.irr < 25 || S.form === 'ikamimi') return;
@@ -694,7 +706,7 @@ function frame(now){
   // 足元の影
   ctx.fillStyle = 'rgba(42,37,35,.10)'; const sh = view.s; for (let i = -14; i < 14; i++){ const w = Math.sqrt(1 - (i / 14) ** 2); ctx.fillRect(Math.round(view.ox * DPR + view.size * DPR / 2 + i * sh), Math.round(view.oy * DPR + 45 * sh), sh, Math.max(sh, Math.round(w * 2) * sh)); }
   drawFever();
-  const sq = squash * .05, grow = hitstop > 0 ? .06 : 0, cw = Math.round(view.size * DPR * (1 + sq + grow)), chh = Math.round(view.size * DPR * (1 - sq + grow)), cX = X - Math.round((cw - view.size * DPR) / 2), cY = Y + Math.round(view.size * DPR) - chh;
+  const sq = squash * .05, grow = (hitstop > 0 ? .06 : 0) + (phase === 'finish' ? .1 * finishT / FINISH : 0), cw = Math.round(view.size * DPR * (1 + sq + grow)), chh = Math.round(view.size * DPR * (1 - sq + grow)), cX = X - Math.round((cw - view.size * DPR) / 2), cY = Y + Math.round(view.size * DPR) - chh;
   ctx.drawImage(sprite(id, f, S.coat, view.s), cX, cY, cw, chh);
   if (evoFlash > 0){ ctx.globalAlpha = Math.min(1, evoFlash / .35) * .6; ctx.drawImage(sprite(id, f, S.coat, view.s, { silhouette:'#ffffff' }), cX, cY, cw, chh); ctx.globalAlpha = 1; }
   if (S.lock > 0){ ctx.globalAlpha = .18; ctx.fillStyle = '#e5484d'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalAlpha = 1; }
@@ -705,6 +717,14 @@ function frame(now){
 }
 
 // ---------- 判定と結果 ----------
+// 10秒たった瞬間の「そこまで！」：一瞬止めて光らせ、最後の姿を見せてから結果へ
+const FINISH = .45;
+let finishT = 0;
+function finish(){
+  phase = 'finish'; ptr.id = null; finishT = FINISH; if (AC){ setP(rustleG.gain, 0); setP(purrG.gain, 0); }
+  hitstop = .12; flashAll = .25; shake = Math.max(shake, .7); bubble = FINISH; bubbleTxt = ['そこまで！', '#2a2523'];
+  sfx.finish(); if (navigator.vibrate && sound) navigator.vibrate(60);
+}
 function fire(){
   phase = 'firing'; ptr.id = null; if (AC){ setP(rustleG.gain, 0); setP(purrG.gain, 0); }
   resultInfo = { ...finalForm(S), sim:S }; wipe(true);
@@ -756,11 +776,18 @@ function drawCard(t){
   x.fillStyle = '#ffffff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(name, CW / 2, ty + (revealed && fm.stage ? 62 : 90));
   if (revealed){ if (fm.stage >= 1 && fm.stage <= 4) for (let i = 0; i < 4; i++) drawIcon(x, 'star', CW / 2 - 2 * 66 + i * 66 + 3, ty + 114, 5, i < fm.stage ? '#ffffff' : 'rgba(255,255,255,.35)');
     else if (fm.stage === 5 || fm.line === 'secret') drawIcon(x, fm.stage === 5 ? 'meme' : 'secret', CW / 2 - 30, ty + 114, 5, '#ffffff'); }
+  // なぜこの姿になったか（次に狙うときの手がかり）
+  if (revealed){
+    const why = whyText(resultInfo); let fs = 42; x.font = `${fs}px DotGothic16`;
+    while (x.measureText(why).width > CW - 140 && fs > 26){ fs -= 2; x.font = `${fs}px DotGothic16`; }
+    x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineWidth = 10; x.lineJoin = 'round';
+    x.strokeStyle = dark ? '#1c1816' : '#fffdf8'; x.strokeText(why, CW / 2, 1162); x.fillStyle = lc; x.fillText(why, CW / 2, 1162);
+  }
   // 記録（アイコン＋値）
   if (revealed){
-    x.fillStyle = '#2a2523'; x.fillRect(56, 1160, CW - 112, 190); x.fillStyle = dark ? '#1c1816' : '#fffdf8'; x.fillRect(65, 1169, CW - 130, 172);
+    x.fillStyle = '#2a2523'; x.fillRect(56, 1200, CW - 112, 150); x.fillStyle = dark ? '#1c1816' : '#fffdf8'; x.fillRect(65, 1209, CW - 130, 132);
     const cells = [['star', `${resultInfo.pts}`], ['paw', `${s.comboPeak}`], ['pin', topRegion(s)], ['claw', `${s.punch}`]];
-    cells.forEach(([ico, v], i) => { const cx = 175 + i * 243; drawIcon(x, ico, cx - 36, 1186, 6, lc); x.fillStyle = ink; x.font = '54px DotGothic16'; x.fillText(v, cx, 1296); });
+    cells.forEach(([ico, v], i) => { const cx = 175 + i * 243; drawIcon(x, ico, cx - 30, 1218, 5, lc); x.fillStyle = ink; x.font = '48px DotGothic16'; x.fillText(v, cx, 1310); });
   }
   x.font = '30px DotGothic16'; x.fillStyle = sub; x.textAlign = 'left'; x.fillText('#10秒なですぎ猫', 56, 1400);
   // スタンプと紙ふぶき（2.4秒で消える。保存画像はその後の絵）
@@ -773,6 +800,13 @@ function drawCard(t){
         x.fillStyle = cols[i % cols.length]; x.fillRect(Math.round((sx + w) / 12) * 12, Math.round(y / 12) * 12, 24, 12 + (i % 2) * 12); } } }
   if (revealed && resultInfo.best){ x.textAlign = 'center'; x.fillText(`ベスト ${resultInfo.best}`, CW / 2, 1400); }
   x.textAlign = 'right'; const d = new Date(); x.fillText(`${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`, CW - 56, 1400);
+}
+function whyText(r){
+  if (r.why) return r.why;
+  const fm = FORM(r.form), ln = LINE(fm.line);
+  if (fm.line === 'start') return 'もっと なでると 姿が変わる';
+  if (fm.line === 'idle') return '手をはなして 待つ → 放置系';
+  return `${ln.how.replace(/（.*?）/g, '')} → ${ln.name}`;
 }
 function stamp(x, txt, col, cx, cy, rot, sc){
   x.save(); x.translate(cx, cy); x.rotate(rot); x.scale(sc, sc); x.font = '64px DotGothic16'; x.textAlign = 'center'; x.textBaseline = 'middle';
